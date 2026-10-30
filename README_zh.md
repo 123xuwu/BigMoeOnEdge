@@ -176,7 +176,7 @@ RAM，因此只有两个层级。能装进显卡的模型会完整地在显卡�
 | 加速器 | Hexagon NPU, Vulkan, OpenCL | Metal | Vulkan, CUDA, OpenCL (arm64), Hexagon NPU (arm64) | Vulkan, CUDA, HIP | Metal |
 | 测试设备 | 12 GB 手机 | 16 GB 笔记本 | 16 GB 笔记本 | 租用的 12-24 GB NVIDIA 显卡和 192 GB AMD 显卡 | 12 GB iPhone |
 
-详细信息：[docs/platforms.md](docs/platforms.md)。
+详细信息：[docs/platforms.md](docs/platforms.md)（[中文版](docs/platforms_zh.md)）。
 
 ## 与其他引擎的比较
 

@@ -10,7 +10,7 @@ for the idea the project is built on.
 | [architecture.md](architecture.md) | How the layers fit together, and why llama.cpp is not forked. |
 | [moe-streaming.md](moe-streaming.md) | Why streaming experts from flash makes a >RAM model run at all. |
 | [seam.md](seam.md) | The exact contract with llama.cpp's public API, and how to upgrade the submodule. |
-| [platforms.md](platforms.md) | What runs on each operating system and backend, how far each has been taken, and what each still owes. |
+| [platforms.md](platforms.md) | What runs on each operating system and backend, how far each has been taken, and what each still owes. Chinese translation: [platforms_zh.md](platforms_zh.md). |
 | [backends.md](backends.md) | Every compute backend the pinned llama.cpp carries, which of them this engine has actually run on, and what each use of a device asks of one. |
 | [limitations.md](limitations.md) | What this does not do, what it cannot do, and the prior art it builds on. |
 | [roadmap.md](roadmap.md) | Where the project is going as a product, in order; then the research themes, with what was measured and what was refuted. |
@@ -41,7 +41,7 @@ for the idea the project is built on.
 | [route-ahead.md](route-ahead.md) | `--route-ahead N`: committing the routing to the N-layers-early prediction, so a prefetch of it can never miss — and what that costs in quality (experimental, lossy). |
 | [npu-windows.md](npu-windows.md) | The Hexagon NPU on a Snapdragon laptop: the `-npu` Windows ARM64 archive, the one-time setup it needs (test-signing, trusting the release's certificate), what that changes and how to undo it. |
 | [npu-prefill.md](npu-prefill.md) | `--prefill-device`: prefill on the NPU and decode on the CPU, a model larger than RAM fed to the NPU two layers at a time, and why decode stays on the CPU. |
-| [android-memory.md](android-memory.md) | What reclaims the engine's memory on a phone, which levers exist (almost none), and why the cache hit rate is what the kernel judges you by. |
+| [android-memory.md](android-memory.md) | What reclaims the engine's memory on a phone, which levers exist (almost none), and why the cache hit rate is what the kernel judges you by. Chinese translation: [android-memory_zh.md](android-memory_zh.md). |
 | [pressure.md](pressure.md) | Cache policy under memory pressure: why an unaffordable budget starts a reclaim war, why the adaptive governor was retired, and what the fixed `--cache-mb` / `--dense-weights` levers do. |
 
 ## Measurements
