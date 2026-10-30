@@ -579,8 +579,17 @@ object Engine {
                     backoffMs = 5_000L
                 } else {
                     // Anything else (a key, a policy, a broken stream) is what a person needs to read.
+                    // The process may still be alive — a stream closed under it, a handshake that
+                    // stopped answering — so its stderr is where the reason is, and the exit path
+                    // that normally carries that tail never runs.
                     val why = t.message?.takeIf { it.isNotBlank() } ?: t.javaClass.simpleName
-                    _state.update { it.copy(serverError = "Engine not reachable: $why", networkDenied = false) }
+                    val tail = runCatching { EngineService.stderrSoFar().trim().takeLast(1500) }.getOrNull().orEmpty()
+                    _state.update {
+                        it.copy(
+                            serverError = if (tail.isEmpty()) "Engine not reachable: $why" else "Engine not reachable: $why\n$tail",
+                            networkDenied = false,
+                        )
+                    }
                 }
             }
             if (_state.value.serverUp) _state.update { it.copy(serverUp = false) }

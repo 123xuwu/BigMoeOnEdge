@@ -43,6 +43,14 @@ class ServerProcess(private val ctx: Context) {
     private val errTail = StringBuilder()
 
     /**
+     * What the server has written to stderr so far. [start]'s `onExit` hands the tail over when the
+     * process ends; this is for the failures that are not an exit — a stream the server closed, a
+     * handshake that stopped answering — where the process may still be running and its stderr is
+     * the only thing that says why.
+     */
+    fun stderrSoFar(): String = synchronized(errTail) { errTail.toString() }
+
+    /**
      * Start the server, always with [apiKey] required: loopback on a phone is reachable by every
      * installed app, and without a key any of them could read a conversation off the event stream.
      * With [share] it listens on every interface too. The key travels in a file only this app can
@@ -315,5 +323,11 @@ class EngineService : Service() {
         private fun lifecycle(block: () -> Unit) {
             lifecycleQueue.trySend(block)
         }
+
+        /**
+         * The running server's stderr so far, or "" when no process is held. [Engine] asks for it
+         * when something failed that did not end the process: the exit path carries the tail itself.
+         */
+        fun stderrSoFar(): String = server?.stderrSoFar().orEmpty()
     }
 }

@@ -1,6 +1,10 @@
 package io.bigmoeonedge.app.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
@@ -42,26 +46,41 @@ fun EngineStatusLine(onOpenModels: () -> Unit, onOpenSetting: (String) -> Unit) 
     val catalog = engine.models?.catalog.orEmpty()
     val downloads = remember(live, catalog) { downloadSummary(runningTransfers(catalog, live) { ModelDownloader.entryProgress(context, it, live) }) }
 
-    val toSettings = "Allow" to { openAppSettings(context) }
-    val toModels = "Choose one" to onOpenModels
+    val toSettings = "允许" to { openAppSettings(context) }
+    val toModels = "选择一个" to onOpenModels
+    // A failure that is not an exit carries the engine's stderr after its first line: the line keeps
+    // the status bar one line, the dialog is where the rest is read whole (there is no adb on a phone).
+    var showDetail by remember { mutableStateOf(false) }
+    val detail = engine.serverError.orEmpty()
     val (text, action) = when {
         !engine.serverUp && engine.networkDenied -> engine.serverError.orEmpty() to toSettings
-        !engine.serverUp -> (engine.serverError?.lineSequence()?.firstOrNull()?.take(120) ?: "Engine not running") to null
-        info == null -> "Connecting…" to null
-        info.state == "planning" -> "Measuring the phone, then loading…" to null
-        info.state == "loading" -> "Loading model…" to null
-        info.state == "error" -> "Engine error: ${info.error.take(120)}" to toModels.copy(first = "Models")
-        info.model == null -> "No model loaded" to toModels
+        !engine.serverUp -> (engine.serverError?.lineSequence()?.firstOrNull()?.take(120) ?: "引擎未运行") to null
+        info == null -> "连接中…" to null
+        info.state == "planning" -> "正在测量手机，随后加载…" to null
+        info.state == "loading" -> "正在加载模型…" to null
+        info.state == "error" -> "引擎错误：${info.error.take(120)}" to toModels.copy(first = "模型")
+        info.model == null -> "未加载模型" to toModels
         else -> {
             // A model running without streaming says so wherever its name is shown.
-            val name = info.model.name + if (info.model.streaming) "" else " (not streamed)"
-            "$name · ${if (info.generating) "generating" else "ready"}" to null
+            val name = info.model.name + if (info.model.streaming) "" else "（未流式）"
+            "$name · ${if (info.generating) "生成中" else "就绪"}" to null
         }
     }
     Surface(color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
             // The denial is the one status a person must read whole to act on: it may wrap.
-            Text(text, fontSize = 12.sp, maxLines = if (engine.networkDenied) 3 else 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            // An engine failure whose stderr is longer than the line opens whole on a tap: without a
+            // cable there is nowhere else to read it.
+            val opens = !engine.serverUp && detail.isNotBlank()
+            Text(
+                text,
+                fontSize = 12.sp,
+                maxLines = if (engine.networkDenied) 3 else 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .weight(1f)
+                    .then(if (opens) Modifier.clickable { showDetail = true } else Modifier),
+            )
             if (downloads != null) {
                 TextButton(shape = Corner, onClick = onOpenModels, contentPadding = PaddingValues(horizontal = 8.dp)) { Text(downloads.text, fontSize = 12.sp) }
             }
@@ -75,13 +94,30 @@ fun EngineStatusLine(onOpenModels: () -> Unit, onOpenSetting: (String) -> Unit) 
             Row(Modifier.padding(horizontal = 16.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(ctx.text(), fontSize = 12.sp, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 TextButton(shape = Corner, onClick = { onOpenSetting(ctx.key) }, contentPadding = PaddingValues(horizontal = 8.dp)) {
-                    Text("Raise ${ctx.label}", fontSize = 12.sp)
+                    Text("提高 ${ctx.label}", fontSize = 12.sp)
                 }
                 IconButton(onClick = {
                     AppPrefs.setCtxWarningDismissed(context, ctx.dismissKey)
                     dismissed = ctx.dismissKey
-                }) { Icon(Icons.Filled.Close, contentDescription = "Dismiss the context warning") }
+                }) { Icon(Icons.Filled.Close, contentDescription = "关闭上下文提示") }
             }
         }
+    }
+
+    // What the engine wrote to stderr when it failed: the whole thing, scrollable, selectable. A
+    // phone has no other console, and the line above shows only the first sentence of it.
+    if (showDetail) {
+        AlertDialog(
+            onDismissRequest = { showDetail = false },
+            title = { Text("引擎错误") },
+            text = {
+                Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
+                    SelectionContainer {
+                        Text(detail, fontSize = 11.sp, fontFamily = CodeFont)
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showDetail = false }) { Text("关闭") } },
+        )
     }
 }
