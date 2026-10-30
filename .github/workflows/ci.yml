@@ -2,7 +2,9 @@ name: ci
 
 on:
   push:
-    branches: [ main ]
+    # zh-cn carries the Simplified Chinese UI translation; its pushes build the APK too (see
+    # android-apk) so a translation change can be installed and looked at on a phone.
+    branches: [ main, zh-cn ]
     tags: [ 'v*' ]
   # Every pull request, whatever its base: a PR stacked on another branch is merged one day too,
   # and filtered to `main` it reached that day with no build behind it.
@@ -272,11 +274,15 @@ jobs:
   # release: one created with this workflow's token would fire no release-apk or release-host run.
   # Debug-signed: for on-device validation, not Play distribution.
   android-apk:
-    # The long job (NDK + cross-compile + gradle). Build it on PRs (catch APK breakage before merge)
-    # and on release tags (built, never attached: release-apk publishes the APKs), but not on every
-    # main push. Trigger a one-off manually with the Run workflow button (workflow_dispatch) if you
-    # need a fresh main APK between releases.
-    if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/v')
+    # The long job (NDK + cross-compile + gradle). Build it on PRs (catch APK breakage before merge),
+    # on release tags (built, never attached: release-apk publishes the APKs), and on zh-cn pushes
+    # (the translation branch: an APK is the only way to look at the Chinese UI on a device). Not on
+    # every main push. Trigger a one-off manually with the Run workflow button (workflow_dispatch) if
+    # you need a fresh main APK between releases.
+    if: >-
+      github.event_name != 'push'
+      || startsWith(github.ref, 'refs/tags/v')
+      || github.ref == 'refs/heads/zh-cn'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
