@@ -68,6 +68,10 @@ class ServerProcess(private val ctx: Context) {
             "--models-dir", ModelManager.internalModelsDir(ctx).absolutePath,
             "--catalog", stageCatalog(ctx).absolutePath,
             "--api-key-file", writeKeyFile(ctx, apiKey).absolutePath,
+            // A phone is more often on a network where the hub does not answer than one where it
+            // does; the mirror serves the same API, the same resolve URLs and the same digests, and
+            // the catalog's urls name it too, so what the listing offers is what this can fetch.
+            "--hf-endpoint", HF_ENDPOINT,
             // A phone is a chat client: its conversations are plain chat, the agent is the
             // desktop's (docs/agent.md).
             "--chat-only",
@@ -137,6 +141,12 @@ class ServerProcess(private val ctx: Context) {
     companion object {
         /** The one port the app's server listens on, and the one every address the app shows names. */
         const val PORT = 8765
+        /**
+         * Where repositories are searched, listed and fetched from: the mirror the catalog's urls
+         * name. The engine defaults to the same one; saying it here keeps the two from drifting if
+         * either changes, and makes the choice visible to whoever reads this launch.
+         */
+        const val HF_ENDPOINT = "https://hf-mirror.com"
         fun baseUrl() = "http://127.0.0.1:$PORT"
 
         /** The server's data directory (its settings.json and the catalog), beside the app's files. */

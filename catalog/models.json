@@ -10,7 +10,7 @@
       "files": [
         {"name": "Qwen3.6-35B-A3B-Q4_K_M.gguf", "bytes": 20419565568,
          "sha256": "671e47e0ec53c665d048b98c3ecbfd5236b5ca9c3e02ed19fc8f81f7b85140c7",
-         "url": "https://huggingface.co/ggml-org/Qwen3.6-35B-A3B-GGUF/resolve/main/Qwen3.6-35B-A3B-Q4_K_M.gguf?download=true"}
+         "url": "https://hf-mirror.com/ggml-org/Qwen3.6-35B-A3B-GGUF/resolve/main/Qwen3.6-35B-A3B-Q4_K_M.gguf?download=true"}
       ]
     },
     {
@@ -21,7 +21,7 @@
       "files": [
         {"name": "gemma-4-26B-A4B-it-Q4_0.gguf", "bytes": 14618145824,
          "sha256": "d208665ab1cd3a69f7a9a4bc59430e8448c8093d9b06334f566ac59d6d504a03",
-         "url": "https://huggingface.co/ggml-org/gemma-4-26B-A4B-it-GGUF/resolve/main/gemma-4-26B-A4B-it-Q4_0.gguf?download=true"}
+         "url": "https://hf-mirror.com/ggml-org/gemma-4-26B-A4B-it-GGUF/resolve/main/gemma-4-26B-A4B-it-Q4_0.gguf?download=true"}
       ]
     }
   ]

@@ -64,7 +64,10 @@ namespace {
 
 constexpr int kPortMax = 65535;
 
-constexpr const char * kDefaultHfEndpoint = "https://huggingface.co";
+// hf-mirror.com serves the same API and the same resolve URLs as the hub, so a search, a listing
+// and a download all work unchanged; it is reachable where huggingface.co is not. --hf-endpoint
+// still points this at the hub, or at any other mirror.
+constexpr const char * kDefaultHfEndpoint = "https://hf-mirror.com";
 constexpr int kHfSearchLimit = 20; // repositories a search answers with: a screen's worth
 
 // The server's workers. A request holds one for its whole life: an event stream for as long as a UI
