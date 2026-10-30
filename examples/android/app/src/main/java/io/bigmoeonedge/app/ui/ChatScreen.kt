@@ -41,15 +41,15 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/** Where the chat's error cards lead: the other screens. */
+/** 聊天中错误卡片可跳转的去处：其他页面。 */
 data class ChatNav(
     val openModels: () -> Unit,
     val openSetting: (String) -> Unit,
 )
 
 /**
- * The chat: the conversations (the server's, docs/chat.md; plain chat on a phone) in a drawer;
- * the open one in the middle as its messages; the composer at the bottom where a thumb reaches it.
+ * 聊天页：会话列表（来自服务端，见 docs/chat.md；手机上即普通聊天）位于抽屉中；
+ * 打开的会话以消息形式显示在中间；输入框位于底部拇指可及之处。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,15 +73,15 @@ fun ChatScreen(modifier: Modifier = Modifier, nav: ChatNav) {
                     FilledTonalButton(onClick = { Chat.newConversation(); scope.launch { drawer.close() } }, shape = Corner) {
                         Icon(Icons.Filled.Add, contentDescription = null, Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("New chat")
+                        Text("新建对话")
                     }
                 }
                 HorizontalDivider(Modifier.padding(vertical = 8.dp), color = tokens.line)
-                SectionTitle("Conversations", Modifier.padding(horizontal = 28.dp, vertical = 4.dp))
+                SectionTitle("会话", Modifier.padding(horizontal = 28.dp, vertical = 4.dp))
                 val stamp = remember { SimpleDateFormat("d MMM HH:mm", Locale.getDefault()) }
                 if (chat.conversations.isEmpty()) {
                     Text(
-                        "None yet. What you send starts one, kept by the engine on this phone.",
+                        "还没有会话。发送第一条消息即会创建，并由本机引擎保存。",
                         style = MaterialTheme.typography.bodySmall, color = tokens.muted,
                         modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp),
                     )
@@ -94,7 +94,7 @@ fun ChatScreen(modifier: Modifier = Modifier, nav: ChatNav) {
                             onClick = { Chat.open(c.id); scope.launch { drawer.close() } },
                             label = {
                                 Column {
-                                    Text(c.title.ifEmpty { "New chat" }, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(c.title.ifEmpty { "新建对话" }, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                         val meta = c.updated.takeIf { it > 0 }?.let { stamp.format(Date(it)) }.orEmpty()
                                         Text(meta, fontSize = 11.sp, color = tokens.muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
@@ -104,10 +104,10 @@ fun ChatScreen(modifier: Modifier = Modifier, nav: ChatNav) {
                             },
                             badge = {
                                 Box {
-                                    IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More") }
+                                    IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "更多") }
                                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                                        DropdownMenuItem(text = { Text("Rename") }, leadingIcon = { Icon(Icons.Filled.Edit, null) }, onClick = { menu = false; renaming = c })
-                                        DropdownMenuItem(text = { Text("Delete") }, leadingIcon = { Icon(Icons.Filled.Delete, null) }, onClick = { menu = false; confirmDelete = c })
+                                        DropdownMenuItem(text = { Text("重命名") }, leadingIcon = { Icon(Icons.Filled.Edit, null) }, onClick = { menu = false; renaming = c })
+                                        DropdownMenuItem(text = { Text("删除") }, leadingIcon = { Icon(Icons.Filled.Delete, null) }, onClick = { menu = false; confirmDelete = c })
                                     }
                                 }
                             },
@@ -120,14 +120,14 @@ fun ChatScreen(modifier: Modifier = Modifier, nav: ChatNav) {
         Column(modifier.fillMaxSize()) {
             TopAppBar(
                 title = {
-                    Text(chat.open?.title?.ifEmpty { null } ?: "New chat", maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
+                    Text(chat.open?.title?.ifEmpty { null } ?: "新建对话", maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
                 },
                 navigationIcon = {
-                    IconButton(onClick = { scope.launch { drawer.open() } }) { Icon(Icons.Filled.Menu, contentDescription = "Conversations") }
+                    IconButton(onClick = { scope.launch { drawer.open() } }) { Icon(Icons.Filled.Menu, contentDescription = "会话") }
                 },
                 actions = {
                     if (chat.open != null) {
-                        IconButton(onClick = { Chat.newConversation() }) { Icon(Icons.Filled.Add, contentDescription = "New chat") }
+                        IconButton(onClick = { Chat.newConversation() }) { Icon(Icons.Filled.Add, contentDescription = "新建对话") }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = tokens.bg),
@@ -141,20 +141,20 @@ fun ChatScreen(modifier: Modifier = Modifier, nav: ChatNav) {
     confirmDelete?.let { c ->
         AlertDialog(
             onDismissRequest = { confirmDelete = null },
-            title = { Text("Delete this conversation?") },
-            text = { Text("\"${c.title.ifEmpty { "New chat" }}\" and everything in it is removed from the engine.") },
-            confirmButton = { TextButton(onClick = { Chat.delete(c.id); confirmDelete = null }) { Text("Delete", color = tokens.err) } },
-            dismissButton = { TextButton(onClick = { confirmDelete = null }) { Text("Cancel") } },
+            title = { Text("删除这个会话？") },
+            text = { Text("\"${c.title.ifEmpty { "新建对话" }}\" 及其中的全部内容都会从引擎中移除。") },
+            confirmButton = { TextButton(onClick = { Chat.delete(c.id); confirmDelete = null }) { Text("删除", color = tokens.err) } },
+            dismissButton = { TextButton(onClick = { confirmDelete = null }) { Text("取消") } },
         )
     }
     renaming?.let { c ->
         var title by remember(c.id) { mutableStateOf(c.title) }
         AlertDialog(
             onDismissRequest = { renaming = null },
-            title = { Text("Rename") },
+            title = { Text("重命名") },
             text = { OutlinedTextField(value = title, onValueChange = { title = it }, singleLine = true, modifier = Modifier.fillMaxWidth()) },
-            confirmButton = { TextButton(onClick = { Chat.rename(c.id, title.trim()); renaming = null }, enabled = title.isNotBlank()) { Text("Save") } },
-            dismissButton = { TextButton(onClick = { renaming = null }) { Text("Cancel") } },
+            confirmButton = { TextButton(onClick = { Chat.rename(c.id, title.trim()); renaming = null }, enabled = title.isNotBlank()) { Text("保存") } },
+            dismissButton = { TextButton(onClick = { renaming = null }) { Text("取消") } },
         )
     }
 }
@@ -162,8 +162,8 @@ fun ChatScreen(modifier: Modifier = Modifier, nav: ChatNav) {
 @Composable
 fun ConversationStateChip(state: String) {
     when (state) {
-        ConversationSummary.STATE_RUNNING -> Chip("running", tokens.accentInk)
-        ConversationSummary.STATE_ERROR -> Chip("error", tokens.err)
+        ConversationSummary.STATE_RUNNING -> Chip("运行中", tokens.accentInk)
+        ConversationSummary.STATE_ERROR -> Chip("出错", tokens.err)
     }
 }
 
@@ -171,7 +171,7 @@ fun ConversationStateChip(state: String) {
 private fun Transcript(modifier: Modifier, nav: ChatNav) {
     val chat by Chat.state.collectAsStateWithLifecycle()
     val decision by Decisions.state.collectAsStateWithLifecycle()
-    // Only the context advice, not every token event: the transcript is the heaviest thing on screen.
+    // 只订阅上下文建议，而非每个 token 事件：消息列表是界面上开销最大的部分。
     val ctxAdvice by remember { Engine.state.map { contextWarning(it.info?.model, it.params) }.distinctUntilChanged() }.collectAsStateWithLifecycle(null)
     val listState = rememberLazyListState()
     val shown = chat.items
@@ -180,8 +180,8 @@ private fun Transcript(modifier: Modifier, nav: ChatNav) {
     val total = shown.size + (if (working || chat.sending) 1 else 0) + (if (decision != null) 1 else 0) + (if (chat.error != null) 1 else 0)
     val lastText = chat.items.lastOrNull()?.let { it.text.length + it.reasoning.length } ?: 0
 
-    // Follow the tail only while the person is parked at the bottom: scrolling back to re-read a
-    // long answer must not fight a per-token scroll command.
+    // 仅在用户停在底部时才跟随最新消息：向上回看长回答时，
+    // 不应与逐 token 的滚动指令相互抢夺。
     var followTail by remember { mutableStateOf(true) }
     val atBottom by remember {
         derivedStateOf {
@@ -220,7 +220,7 @@ private fun Transcript(modifier: Modifier, nav: ChatNav) {
                 item(key = "working") {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = tokens.accent)
-                        Text(if (chat.sending) "Sending…" else "Working…", style = MaterialTheme.typography.bodySmall, color = tokens.muted)
+                        Text(if (chat.sending) "正在发送…" else "正在处理…", style = MaterialTheme.typography.bodySmall, color = tokens.muted)
                     }
                 }
             }
@@ -237,7 +237,7 @@ private fun Transcript(modifier: Modifier, nav: ChatNav) {
                 shape = Corner,
                 onClick = { scope.launch { listState.animateScrollToItem(total - 1, Int.MAX_VALUE) } },
                 modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp),
-            ) { Text("Jump to latest") }
+            ) { Text("跳到最新") }
         }
     }
 }
@@ -246,24 +246,24 @@ private fun Transcript(modifier: Modifier, nav: ChatNav) {
 private fun EmptyChat(unsupported: Boolean) {
     Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center) {
         if (unsupported) {
-            Text("This engine keeps no conversations.", style = MaterialTheme.typography.titleMedium)
+            Text("该引擎不保存会话。", style = MaterialTheme.typography.titleMedium)
             Text(
-                "The server this app started does not offer conversations. Update the app to a build that carries them.",
+                "本应用启动的服务端不支持会话功能。请将应用更新到支持该功能的版本。",
                 style = MaterialTheme.typography.bodyMedium, color = tokens.muted,
             )
             return@Column
         }
-        Text("Ask anything.", style = MaterialTheme.typography.titleLarge)
+        Text("随便问点什么。", style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(4.dp))
         Text(
-            "The model runs on this phone, and nothing you write leaves it. Load a model from Models, " +
-                "then write below.",
+            "模型运行在这台手机上，你写的内容不会离开本机。请先在“模型”页加载模型，" +
+                "然后在下方输入。",
             style = MaterialTheme.typography.bodyMedium, color = tokens.muted,
         )
     }
 }
 
-/** Why a send or a run failed, decided on by its code; the fix sits beside it. */
+/** 发送或运行失败的原因，由其错误码决定；修复入口就在旁边。 */
 @Composable
 private fun ErrorCard(err: String, code: String, ctx: Pair<Int, Pair<String, String>>?, nav: ChatNav) {
     BmoeCard(colour = tokens.errTint, padding = 12.dp) {
@@ -271,7 +271,7 @@ private fun ErrorCard(err: String, code: String, ctx: Pair<Int, Pair<String, Str
         val contextFull = code == ApiException.CODE_CONTEXT_FULL
         if (contextFull) {
             Text(
-                "The conversation has filled the model's context" + (ctx?.let { " of ${it.first} tokens" } ?: "") + ".",
+                "会话已占满模型的上下文" + (ctx?.let { "（共 ${it.first} 个 token）" } ?: "") + "。",
                 style = MaterialTheme.typography.bodySmall, color = tokens.muted,
             )
         }
@@ -279,31 +279,31 @@ private fun ErrorCard(err: String, code: String, ctx: Pair<Int, Pair<String, Str
             Spacer(Modifier.weight(1f))
             when {
                 contextFull -> {
-                    if (ctx != null) TextButton(onClick = { nav.openSetting(ctx.second.first) }) { Text("Raise ${ctx.second.second}") }
-                    TextButton(onClick = { Chat.newConversation() }) { Text("New chat") }
+                    if (ctx != null) TextButton(onClick = { nav.openSetting(ctx.second.first) }) { Text("提高 ${ctx.second.second}") }
+                    TextButton(onClick = { Chat.newConversation() }) { Text("新建对话") }
                 }
-                code == ApiException.CODE_NO_MODEL -> TextButton(onClick = nav.openModels) { Text("Models") }
+                code == ApiException.CODE_NO_MODEL -> TextButton(onClick = nav.openModels) { Text("模型") }
             }
-            TextButton(onClick = { Chat.clearError() }) { Text("Dismiss") }
+            TextButton(onClick = { Chat.clearError() }) { Text("忽略") }
         }
     }
 }
 
-/** A decision's answer: every option with the probability the model put on it, the pick in bold. */
+/** 选择型回答：列出每个选项及模型给出的概率，被选中的加粗。 */
 @Composable
 private fun DecisionCard(d: io.bigmoeonedge.app.engine.DecisionUi, onOpenModels: () -> Unit) {
     BmoeCard(padding = 12.dp) {
-        Text("Choose: " + d.question, style = MaterialTheme.typography.titleSmall)
+        Text("请选择：" + d.question, style = MaterialTheme.typography.titleSmall)
         when {
             d.running -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                Text("Reading the options…", style = MaterialTheme.typography.bodySmall, color = tokens.muted)
+                Text("正在读取选项…", style = MaterialTheme.typography.bodySmall, color = tokens.muted)
                 Spacer(Modifier.weight(1f))
-                TextButton(onClick = { Decisions.stop() }) { Text("Stop") }
+                TextButton(onClick = { Decisions.stop() }) { Text("停止") }
             }
             d.error != null -> {
                 Text(d.error, color = tokens.err, style = MaterialTheme.typography.bodySmall)
-                if (d.errorCode == ApiException.CODE_NO_MODEL) TextButton(onClick = onOpenModels) { Text("Models") }
+                if (d.errorCode == ApiException.CODE_NO_MODEL) TextButton(onClick = onOpenModels) { Text("模型") }
             }
             else -> d.scores.forEachIndexed { i, c ->
                 val picked = i == d.best
@@ -322,11 +322,11 @@ private fun DecisionCard(d: io.bigmoeonedge.app.engine.DecisionUi, onOpenModels:
             }
         }
         if (d.metrics.isNotEmpty()) Text(d.metrics, style = CodeStyle.copy(fontSize = 11.sp), color = tokens.muted)
-        if (!d.running) Row { Spacer(Modifier.weight(1f)); TextButton(onClick = { Decisions.dismiss() }) { Text("Dismiss") } }
+        if (!d.running) Row { Spacer(Modifier.weight(1f)); TextButton(onClick = { Decisions.dismiss() }) { Text("忽略") } }
     }
 }
 
-/** The composer: the live line while the engine works, then the prompt and Send, or Stop while an answer is written. */
+/** 输入区：引擎工作时显示实时状态行，随后是输入框与发送按钮；回答生成过程中显示停止按钮。 */
 @Composable
 private fun Composer() {
     val chat by Chat.state.collectAsStateWithLifecycle()
@@ -344,7 +344,7 @@ private fun Composer() {
             if (choose) {
                 OutlinedTextField(
                     value = optionsText, onValueChange = { optionsText = it },
-                    label = { Text("Options, one per line") },
+                    label = { Text("选项，每行一个") },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(top = 8.dp), minLines = 2, maxLines = 6,
                 )
             }
@@ -355,10 +355,10 @@ private fun Composer() {
             ) {
                 var more by remember { mutableStateOf(false) }
                 Box {
-                    IconButton(onClick = { more = true }) { Icon(Icons.Filled.Add, contentDescription = "More") }
+                    IconButton(onClick = { more = true }) { Icon(Icons.Filled.Add, contentDescription = "更多") }
                     DropdownMenu(expanded = more, onDismissRequest = { more = false }) {
                         DropdownMenuItem(
-                            text = { Text(if (choose) "Back to a message" else "Choose from options") },
+                            text = { Text(if (choose) "返回普通提问" else "从选项中挑选") },
                             leadingIcon = { Icon(Icons.Filled.Build, null) },
                             onClick = { choose = !choose; more = false },
                         )
@@ -367,36 +367,36 @@ private fun Composer() {
                 OutlinedTextField(
                     value = prompt,
                     onValueChange = { prompt = it },
-                    placeholder = { Text(if (choose) "Question" else "Message") },
+                    placeholder = { Text(if (choose) "问题" else "消息") },
                     modifier = Modifier.weight(1f),
                     maxLines = 6,
                     shape = Corner,
                     trailingIcon = if (prompt.isNotEmpty()) ({
-                        IconButton(onClick = { prompt = "" }) { Icon(Icons.Filled.Clear, contentDescription = "Clear") }
+                        IconButton(onClick = { prompt = "" }) { Icon(Icons.Filled.Clear, contentDescription = "清除") }
                     }) else null,
                 )
                 if (chat.running) {
-                    FilledTonalButton(onClick = { Chat.stop() }, shape = Corner, contentPadding = PaddingValues(horizontal = 16.dp)) { Text("Stop") }
+                    FilledTonalButton(onClick = { Chat.stop() }, shape = Corner, contentPadding = PaddingValues(horizontal = 16.dp)) { Text("停止") }
                 } else {
                     val options = if (choose) Decide.parseOptions(optionsText) else emptyList()
                     FilledIconButton(
                         shape = Corner,
                         onClick = {
-                            // Drop focus so the keyboard retracts: the answer streams into the space it covered.
+                            // 取消焦点以收起键盘：回答会流入键盘原本遮挡的区域。
                             focus.clearFocus()
                             if (choose) Decisions.choose(prompt, options) else Chat.send(prompt)
                             prompt = ""
                         },
                         enabled = prompt.isNotBlank() && engine.serverUp && !chat.sending && decision?.running != true &&
                             (!choose || options.size >= 2),
-                    ) { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = if (choose) "Choose" else "Send") }
+                    ) { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = if (choose) "选择" else "发送") }
                 }
             }
         }
     }
 }
 
-/** The rate and where the time goes, one line, while generating and after; the full card is in Metrics. */
+/** 生成速率与耗时分布，一行显示，生成中与生成后都可见；完整卡片见“指标”页。 */
 @Composable
 private fun LiveLine() {
     val engine by Engine.state.collectAsStateWithLifecycle()
@@ -404,14 +404,14 @@ private fun LiveLine() {
     if (t.step == 0 && t.avgTokensPerSecond <= 0) return
     val b = breakdown(t)
     val loc = Locale.US
-    val rate = if (b.isAverage) String.format(loc, "%.1f tok/s avg", t.avgTokensPerSecond)
+    val rate = if (b.isAverage) String.format(loc, "平均 %.1f tok/s", t.avgTokensPerSecond)
     else String.format(loc, "%.1f tok/s", t.tokensPerSecond)
     val parts = mutableListOf(rate)
     if (b.totalMs > 0) {
-        parts += String.format(loc, "compute %.0f%%", 100.0 * b.computeMs / b.totalMs)
-        parts += String.format(loc, "flash %.0f%%", 100.0 * b.flashWaitMs / b.totalMs)
+        parts += String.format(loc, "计算 %.0f%%", 100.0 * b.computeMs / b.totalMs)
+        parts += String.format(loc, "闪存等待 %.0f%%", 100.0 * b.flashWaitMs / b.totalMs)
     }
-    if (t.cacheHitPct >= 0) parts += String.format(loc, "cache %.0f%%", t.cacheHitPct)
+    if (t.cacheHitPct >= 0) parts += String.format(loc, "缓存命中 %.0f%%", t.cacheHitPct)
     engine.cpuTempC?.let { parts += String.format(loc, "%.0f°C", it) }
     if (engine.generating && t.steps > 0) parts += "${t.step}/${t.steps}"
     Text(

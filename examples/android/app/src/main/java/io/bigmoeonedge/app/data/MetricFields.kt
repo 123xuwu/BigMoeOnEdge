@@ -17,42 +17,42 @@ data class MetricField(
 
 object MetricFields {
     val all: List<MetricField> = listOf(
-        MetricField("turn", "which generation", "0-based turn in the session; one file spans them all", Better.NEUTRAL),
-        MetricField("step", "token index", "this token's number within the turn, from 1", Better.NEUTRAL),
-        MetricField("steps", "tokens requested", "the n_predict target for the turn", Better.NEUTRAL),
+        MetricField("turn", "第几轮生成", "会话内从 0 开始的轮次；一个文件跨越所有轮次", Better.NEUTRAL),
+        MetricField("step", "token 序号", "本 token 在该轮内的编号，从 1 开始", Better.NEUTRAL),
+        MetricField("steps", "请求的 token 数", "该轮的 n_predict 目标值", Better.NEUTRAL),
 
-        MetricField("wall_ms", "token time", "the whole time this token took — the one number measured directly; tok/s = 1000/wall_ms", Better.LOWER),
-        MetricField("compute_ms", "compute (a residual!)", "with streaming on, what is left after io/stall and mgmt are subtracted — NOT measured, so it also absorbs faults and scheduler stalls, and is clamped at 0. With streaming off it is just wall_ms", Better.LOWER),
-        MetricField("io_ms", "flash read time", "time reading experts from flash. In serial it is part of wall_ms; under overlap it is per-lane busy time summed, so it can exceed wall_ms", Better.LOWER),
-        MetricField("stall_ms", "wait on flash", "overlap only: the wall time during which at least one compute thread was blocked on a streamed read — the UNION of stalled intervals, not a per-thread mean, so overlapping waits count once", Better.LOWER),
-        MetricField("flash_wait_ms", "flash wait", "the flash term that is a share of wall_ms, as the server chose it for the run's mode: io_ms in serial, stall_ms under overlap. What the panel's flash bar draws", Better.LOWER),
-        MetricField("mgmt_ms", "cache bookkeeping", "time committing, evicting and reordering the LRU cache this token — plus the periodic dense-residency probe, which the engine folds in here", Better.LOWER),
+        MetricField("wall_ms", "token 耗时", "该 token 的全部耗时——唯一直接测量的数字；tok/s = 1000/wall_ms", Better.LOWER),
+        MetricField("compute_ms", "计算（残差！）", "开启流式时，是扣除 io/stall 和 mgmt 之后的剩余量——并非直接测量，因此也吸收了缺页与调度停滞，且在 0 处截断。关闭流式时它就是 wall_ms", Better.LOWER),
+        MetricField("io_ms", "闪存读取时间", "从闪存读取专家所用时间。串行模式下它是 wall_ms 的一部分；重叠模式下是各通道繁忙时间之和，因此可能超过 wall_ms", Better.LOWER),
+        MetricField("stall_ms", "等待闪存", "仅重叠模式：至少有一个计算线程被流式读取阻塞的墙钟时间——是停滞区间的并集，不是每线程平均值，因此重叠的等待只计一次", Better.LOWER),
+        MetricField("flash_wait_ms", "闪存等待", "作为 wall_ms 一部分的闪存项，由服务器按本次运行的模式选定：串行取 io_ms，重叠取 stall_ms。即面板上闪存条绘制的内容", Better.LOWER),
+        MetricField("mgmt_ms", "缓存维护", "本 token 用于提交、驱逐和重排 LRU 缓存的时间——外加周期性的 dense 驻留探测，引擎把它并入此处", Better.LOWER),
 
-        MetricField("read_bytes", "flash read", "bytes of experts pulled from flash THIS token (not cumulative)", Better.LOWER),
-        MetricField("cache_hit_pct", "hit rate (cumulative!)", "share of expert lookups served from cache — averaged from the start of the session and INCLUDING prefill (which dominates early), so it moves slowly and is not a per-token value", Better.HIGHER),
+        MetricField("read_bytes", "闪存读取量", "本 token 从闪存读取的专家字节数（非累计）", Better.LOWER),
+        MetricField("cache_hit_pct", "命中率（累计！）", "由缓存满足的专家查询占比——从会话开始起平均，且包含预填充（早期占主导），因此变化缓慢，不是逐 token 的值", Better.HIGHER),
 
-        MetricField("majflt", "hard faults", "pages the kernel reclaimed and the decode had to re-read from flash mid-compute this token", Better.LOWER),
-        MetricField("majflt_mib", "faulted MiB", "the same faults as memory: majflt × the kernel page size (4 KiB, or 16 KiB on large-page devices — resolved at runtime, not assumed). Compare directly to read_bytes — reads we chose vs reads the kernel forced", Better.LOWER),
-        MetricField("cpu_ms", "CPU used", "CPU time across all threads. Compare to wall_ms x threads: near 100% is compute-bound, far below means throttled or stalled cores", Better.NEUTRAL),
+        MetricField("majflt", "硬缺页", "内核回收、导致本 token 在计算中途必须从闪存重新读取的页数", Better.LOWER),
+        MetricField("majflt_mib", "缺页 MiB", "同样这些缺页折算成内存：majflt × 内核页大小（4 KiB，大页设备为 16 KiB——运行时解析，不做假设）。可直接与 read_bytes 比较——我们主动的读取对内核强制的读取", Better.LOWER),
+        MetricField("cpu_ms", "CPU 占用", "所有线程的 CPU 时间。与 wall_ms × 线程数比较：接近 100% 表示计算受限，远低于则说明核心被限频或阻塞", Better.NEUTRAL),
 
-        MetricField("cache_budget_mib", "cache budget", "the expert-cache size this run used. Fixed for the run (an explicit --cache-mb, or what auto sized to at load). Bigger buys hits but costs RAM", Better.NEUTRAL),
-        MetricField("dense_resident_frac", "dense weights still in RAM", "estimated fraction of the DENSE (non-expert) weights still resident — a 256-page mincore SAMPLE, not the exact fraction, refreshed every few tokens so most rows carry the last sample. Under 'anon' it samples our own buffers (is zram holding them?); under mmap/warm the mmap (is the kernel dropping the model?). Read with majflt. -1 only before the first sample, with streaming off, or when /proc is unreadable", Better.HIGHER),
+        MetricField("cache_budget_mib", "缓存预算", "本次运行使用的专家缓存大小。运行期间固定（显式的 --cache-mb，或加载时 auto 算出的值）。更大能换来命中率，但占用内存", Better.NEUTRAL),
+        MetricField("dense_resident_frac", "仍驻留内存的 dense 权重", "仍驻留的 dense（非专家）权重的估算比例——基于 256 页 mincore 的采样，不是精确比例，每几个 token 刷新一次，因此多数行携带的是上一次采样值。'anon' 模式下采样我们自己的缓冲区（zram 是否占着它？）；mmap/warm 模式下采样 mmap（内核是否在丢弃模型？）。需与 majflt 一起看。-1 仅出现在首次采样之前、关闭流式时，或 /proc 不可读时", Better.HIGHER),
 
-        MetricField("rss_anon_mib", "anon resident", "resident anonymous memory: the expert cache and the KV/activation buffers — and, under the default 'anon' dense policy, the dense weights too. Falling while cache_budget holds = the kernel taking it", Better.NEUTRAL),
-        MetricField("rss_file_mib", "file resident", "resident file-backed memory: the mmap'd weights, dropped (not swapped) under pressure so it never shows in swap. But under the default 'anon' dense policy the dense weights are anonymous, not file-backed — then this is only what is left mmap'd, and rss_anon carries the model", Better.NEUTRAL),
-        MetricField("swap_mib", "our memory in zram", "anonymous memory already compressed into swap — cache we have effectively lost", Better.LOWER),
-        MetricField("rss_mib", "total resident", "everything resident (VmRSS)", Better.NEUTRAL),
+        MetricField("rss_anon_mib", "匿名驻留", "驻留的匿名内存：专家缓存与 KV/激活缓冲区——在默认的 'anon' dense 策略下还包括 dense 权重。在 cache_budget 不变的情况下下降＝内核正在拿走它", Better.NEUTRAL),
+        MetricField("rss_file_mib", "文件驻留", "驻留的文件后备内存：mmap 的权重，受压时被直接丢弃（而非换出），因此从不体现在 swap 中。但在默认的 'anon' dense 策略下 dense 权重属于匿名内存而非文件后备——此时这里只剩仍然 mmap 的部分，模型由 rss_anon 承载", Better.NEUTRAL),
+        MetricField("swap_mib", "我们在 zram 中的内存", "已压缩进 swap 的匿名内存——可以视为已经失去的缓存", Better.LOWER),
+        MetricField("rss_mib", "总驻留", "全部驻留内存（VmRSS）", Better.NEUTRAL),
 
-        MetricField("loop_overhead_ms", "time between tokens", "everything outside llama_decode: sampling, detokenization, rendering the answer, writing the sinks. It falls outside wall_ms and so outside the reported tok/s, which is why it needs a column — work that moves only this number is paid on every token and shows up nowhere else. On the first token, the gap from the end of prefill to the first decode", Better.LOWER),
+        MetricField("loop_overhead_ms", "token 之间的时间", "llama_decode 之外的一切：采样、反分词、渲染回答、写入 sink。它落在 wall_ms 之外，因而也在上报的 tok/s 之外，这正是它需要单独一列的原因——只影响这个数字的工作每个 token 都要付一次代价，而在别处看不到。对第一个 token 而言，是从预填充结束到首次解码之间的间隔", Better.LOWER),
 
-        MetricField("drain_ms", "wait on previous batch", "overlap only: eval-thread time waiting for the PREVIOUS layer's reads to finish before reusing their slots — part of compute_ms, named so a large compute residual can be attributed instead of guessed at", Better.LOWER),
-        MetricField("adopt_ms", "wait adopting committed reads", "route-ahead only: the load waiting for its own committed speculative reads to complete before staging — part of mgmt_ms", Better.LOWER),
-        MetricField("ra_issue_ms", "issuing early reads", "route-ahead only: eval-thread time issuing the committed selection's reads (settle, residency, retain, prefetch) — part of compute_ms", Better.LOWER),
-        MetricField("ra_wd_ms", "watchdog control", "route-ahead only: the sampled fresh-gate control's exact GEMV on the eval thread — part of compute_ms", Better.LOWER),
+        MetricField("drain_ms", "等待上一批", "仅重叠模式：eval 线程等待上一层的读取完成以便复用其槽位的时间——是 compute_ms 的一部分，单独命名是为了让较大的计算残差可以被归因而非靠猜", Better.LOWER),
+        MetricField("adopt_ms", "等待接管已提交的读取", "仅 route-ahead 模式：加载在暂存前等待自己已提交的推测读取完成——是 mgmt_ms 的一部分", Better.LOWER),
+        MetricField("ra_issue_ms", "发起提前读取", "仅 route-ahead 模式：eval 线程发起已提交选择的读取（settle、residency、retain、prefetch）所用时间——是 compute_ms 的一部分", Better.LOWER),
+        MetricField("ra_wd_ms", "看门狗控制", "仅 route-ahead 模式：抽样 fresh-gate 控制在 eval 线程上执行的精确 GEMV——是 compute_ms 的一部分", Better.LOWER),
 
-        MetricField("mem_available_mib", "device 'available' (it lies)", "what the kernel claims is free — it counts our own mmap'd weights as reclaimable, so it over-states headroom", Better.NEUTRAL),
-        MetricField("mem_free_mib", "device free", "truly free RAM, before any reclaim", Better.NEUTRAL),
-        MetricField("swap_free_mib", "swap free", "zram space left before the device is truly out of room", Better.NEUTRAL),
+        MetricField("mem_available_mib", "设备'可用'内存（会撒谎）", "内核声称的空闲内存——它把我们自己 mmap 的权重也算作可回收，因此高估了余量", Better.NEUTRAL),
+        MetricField("mem_free_mib", "设备空闲", "真正空闲的 RAM，尚未回收任何内容", Better.NEUTRAL),
+        MetricField("swap_free_mib", "swap 空闲", "设备真正用尽空间之前剩余的 zram 容量", Better.NEUTRAL),
     )
 
     private val byName = all.associateBy { it.name }
@@ -74,14 +74,14 @@ object PreambleFacts {
     const val STREAMING_BEFORE = "moe_stream"
 
     val all: List<PreambleFact> = listOf(
-        PreambleFact("engine", "Engine build", "the engine version that produced these rows. Runs from different builds are not a comparison"),
-        PreambleFact(MODEL, "Model", "the gguf, by file name"),
-        PreambleFact("arch", "Architecture", "the architecture the gguf declares; which tensors stream is read from their shapes, not from it"),
-        PreambleFact("n_ctx", "Context", "the context window the session reserved"),
-        PreambleFact("n_expert_used", "Active experts", "experts routed per token, after any override"),
-        PreambleFact(STREAMING, "Streamed", "whether experts were streamed from flash; off is the mmap baseline streamed runs are measured against"),
-        PreambleFact("compute_threads", "Compute threads", "the threads the compute figures are divided by"),
-        PreambleFact("busy_threads", "Busy threads", "every thread busy in a decode, the read lanes included under overlap: the CPU-busy denominator"),
+        PreambleFact("engine", "引擎构建", "产生这些数据行的引擎版本。不同构建之间的运行不可直接比较"),
+        PreambleFact(MODEL, "Model", "该 gguf，按文件名"),
+        PreambleFact("arch", "架构", "gguf 声明的架构；哪些张量参与流式读取是由其形状决定的，而不是由它决定"),
+        PreambleFact("n_ctx", "上下文", "本会话预留的上下文窗口"),
+        PreambleFact("n_expert_used", "激活专家", "每个 token 路由到的专家数，已考虑任何覆盖设置"),
+        PreambleFact(STREAMING, "流式加载", "专家是否从闪存流式读取；关闭即 mmap 基线，流式运行以它为对照"),
+        PreambleFact("compute_threads", "计算线程", "计算类数字所除以的线程数"),
+        PreambleFact("busy_threads", "忙碌线程", "一次解码中所有忙碌的线程，重叠模式下含读取通道：CPU 忙碌率的分母"),
     )
 
     private val byKey = all.associateBy { it.key }

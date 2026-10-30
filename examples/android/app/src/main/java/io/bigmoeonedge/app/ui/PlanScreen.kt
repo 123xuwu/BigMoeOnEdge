@@ -44,12 +44,11 @@ import io.bigmoeonedge.app.engine.planModelName
 import java.util.Locale
 
 /**
- * The plan: what the hardware planner measured on this phone and what it decided for the chosen
- * model, read top down as the web UI reads it (docs/screens.md): one sentence and how it turned
- * out, where the memory goes, what each device does, the decisions grouped, the command. One
- * layout for every machine and the same one on every front-end: each block is a list of whatever
- * the plan holds. The plan itself lives in the engine state, which reads it again when a session
- * opens and when a turn ends, so this screen only draws it.
+ * 方案页：硬件规划器在这台手机上测得了什么，以及它为所选模型做出了什么决定。
+ * 自上而下阅读的顺序与 Web 界面一致（见 docs/screens.md）：一句话结论及其实际表现、
+ * 内存去向、每个设备的作用、分组后的决策、启动命令。所有机型共用同一套布局，
+ * 各个前端也完全一致：每个区块都只是渲染方案中已有的内容。方案本身存于引擎状态，
+ * 引擎在会话打开与回合结束时重新读取，因此本页只负责展示。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,9 +58,8 @@ fun PlanScreen(modifier: Modifier = Modifier, onOpenSetting: (key: String) -> Un
     val snackbar = remember { SnackbarHostState() }
     var applied by remember { mutableStateOf<List<AppliedChange>?>(null) }
 
-    // The engine reads the plan when it reaches the server, when a session opens and when a turn
-    // ends: never a measurement, which on a phone takes a while and must not start on its own. A
-    // screen opened before the engine got there asks once.
+    // 引擎在连上服务端、会话打开以及回合结束时读取方案；绝不会主动触发测量，
+    // 因为在手机上测量耗时较长，不应自行启动。若页面在引擎就绪前打开，则只请求一次。
     LaunchedEffect(engine.serverUp) {
         if (engine.serverUp && engine.plan == null) Engine.refreshPlan()
     }
@@ -74,18 +72,18 @@ fun PlanScreen(modifier: Modifier = Modifier, onOpenSetting: (key: String) -> Un
     val plan = engine.plan
     val busy = engine.measuring
     val planner = engine.info?.plannerAvailable ?: true
-    // A plan is for the model a load opens: chosen on Models, which the table marks as a read-only group.
+    // 方案针对某次加载所打开的模型：该模型在“模型”页选择，参数表将其标记为只读分组。
     val chosen = engine.info?.model != null || loadTargetChosen(engine.params, cfg)
     val canMeasure = planner && chosen && !busy && engine.serverUp
     val modelName = planModelName(plan, engine.params, cfg, engine.info?.model?.path)
-    // One banner for whatever went wrong: the request, or a plan the server could not make.
+    // 所有出错情况都汇总到同一条提示：请求失败，或服务端无法生成方案。
     val shownError = engine.planError.ifEmpty { plan?.takeIf { it.available }?.error.orEmpty() }
 
     Scaffold(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text("Plan") },
+                title = { Text("方案") },
                 navigationIcon = { Box(Modifier.padding(start = 16.dp)) { BrandMark(wordmark = false) } },
             )
         },
@@ -95,23 +93,23 @@ fun PlanScreen(modifier: Modifier = Modifier, onOpenSetting: (key: String) -> Un
             Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            if (!planner) Text("This build does not include the hardware planner.", color = MaterialTheme.colorScheme.error)
-            // Which model the plan is for, said first: a plan is for one model, and Measure is about it.
+            if (!planner) Text("此版本不包含硬件规划器。", color = MaterialTheme.colorScheme.error)
+            // 先说明方案针对哪个模型：一个方案只对应一个模型，测量也围绕它进行。
             if (modelName.isNotEmpty()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         buildAnnotatedString {
-                            append("For ")
+                            append("针对 ")
                             withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(modelName) }
                         },
                         fontSize = 14.sp, modifier = Modifier.weight(1f),
                     )
-                    TextButton(shape = Corner, onClick = onOpenModels) { Text("Change") }
+                    TextButton(shape = Corner, onClick = onOpenModels) { Text("更换") }
                 }
             } else if (!chosen && engine.params != null) {
-                Text("Choose a model from Models: a plan is for one model on this phone.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("请先在“模型”页选择一个模型：一个方案只对应这台手机上的一个模型。", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            // A failed plan can be retried where it says so: measuring is the person's tap, never automatic.
+            // 失败的方案可在提示处重试：测量必须由用户点击触发，绝不自动进行。
             if (shownError.isNotEmpty()) RetryLine(shownError, canMeasure) { measure() }
             if (busy || engine.planProgress != null) PlanProgressCard(engine.planProgress)
 
@@ -122,13 +120,13 @@ fun PlanScreen(modifier: Modifier = Modifier, onOpenSetting: (key: String) -> Un
             when {
                 p == null -> {}
                 !p.available -> Text(p.error, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
-                p.error.isNotEmpty() -> {} // in the banner above
+                p.error.isNotEmpty() -> {} // 在上方提示条中显示
                 p.none -> Tile {
-                    Text("Not measured yet.", fontSize = 22.sp, lineHeight = 26.sp)
+                    Text("尚未测量。", fontSize = 22.sp, lineHeight = 26.sp)
                     Text(
-                        if (modelName.isNotEmpty()) "Measure this phone for $modelName." else "Measure this phone to see what the plan does with the chosen model.",
+                        if (modelName.isNotEmpty()) "为 $modelName 测量这台手机。" else "测量这台手机，看看方案会如何处理所选模型。",
                         fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    PrimaryAction(if (busy) "Measuring..." else "Measure", enabled = canMeasure) { measure() }
+                    PrimaryAction(if (busy) "正在测量…" else "开始测量", enabled = canMeasure) { measure() }
                 }
                 else -> PlanBody(
                     p,
@@ -138,7 +136,7 @@ fun PlanScreen(modifier: Modifier = Modifier, onOpenSetting: (key: String) -> Un
                         applied = null
                         scope.launch {
                             Engine.applyPlan().onSuccess { c -> applied = appliedChanges(before, c.values, engine.params.orEmpty()) }
-                                .onFailure { snackbar.showSnackbar(it.message ?: "could not apply") }
+                                .onFailure { snackbar.showSnackbar(it.message ?: "应用方案失败") }
                         }
                     },
                     applied = applied,
@@ -147,15 +145,15 @@ fun PlanScreen(modifier: Modifier = Modifier, onOpenSetting: (key: String) -> Un
                     onMeasure = { measure() },
                     reloadNeeded = engine.ready && cfg?.reloadRequired == true,
                     onOpenSetting = onOpenSetting,
-                    onCopied = { scope.launch { snackbar.showSnackbar("Copied: the command and the planner's account") } },
+                    onCopied = { scope.launch { snackbar.showSnackbar("已复制：启动命令与规划器的详细说明") } },
                 )
             }
-            // With nothing loaded and no plan to show, the decisions the configuration carries from the
-            // last applied plan, grouped the same way: the screen is never empty once a plan was made.
+            // 在未加载模型且没有可展示的方案时，显示当前配置沿用的上次已应用方案的决策，
+            // 分组方式保持一致：只要生成过方案，本页就不会是空的。
             val carried = cfg?.plan.orEmpty()
             if (engine.info?.model == null && carried.isNotEmpty() && (p == null || p.none || p.error.isNotEmpty() || !p.available)) {
-                Text("Decisions from the last applied plan", style = MaterialTheme.typography.titleMedium)
-                Hint("What the settings carry now; Measure shows the plan in full.")
+                Text("来自上次已应用方案的决策", style = MaterialTheme.typography.titleMedium)
+                Hint("当前设置沿用的内容；点击“开始测量”可查看完整方案。")
                 Decisions(carried, onOpenSetting)
             }
             Spacer(Modifier.height(24.dp))
@@ -204,10 +202,10 @@ private fun PlanBody(
     val f = planFigures(p)
     Tile {
         when {
-            p.fromLastLoad -> StatusBadge("The loaded model runs this plan", okColor())
-            p.cached -> StatusBadge("The last plan measured", MaterialTheme.colorScheme.onSurfaceVariant)
+            p.fromLastLoad -> StatusBadge("当前加载的模型正在按此方案运行", okColor())
+            p.cached -> StatusBadge("上次测量的方案", MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Text(p.sentence.ifEmpty { "Regime: ${p.regime}" }, fontSize = 22.sp, lineHeight = 26.sp)
+        Text(p.sentence.ifEmpty { "模式：${p.regime}" }, fontSize = 22.sp, lineHeight = 26.sp)
         if (p.machine.isNotEmpty()) Text(p.machine, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (p.lanes.isNotEmpty()) {
             Text(
@@ -215,7 +213,7 @@ private fun PlanBody(
                 fontSize = 13.sp, color = MaterialTheme.colorScheme.primary,
             )
         }
-        // The three figures: decode, cache hits, memory; two to a row on a phone.
+        // 三个关键数字：解码速度、缓存命中、内存占用；在手机上每行两个。
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             SpeedWell(f, p.fromLastLoad, Modifier.weight(1f))
             HitsWell(f, Modifier.weight(1f))
@@ -227,20 +225,20 @@ private fun PlanBody(
             }
         }
         if (p.notApplicable.isNotEmpty()) {
-            Text("Decided, but not a setting this app can hold: ${p.notApplicable.joinToString("; ")}", fontSize = 12.sp, color = MaterialTheme.colorScheme.tertiary)
+            Text("已决定，但本应用无法保存为设置项：${p.notApplicable.joinToString("；")}", fontSize = 12.sp, color = MaterialTheme.colorScheme.tertiary)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(shape = Corner, onClick = onApply, enabled = canApply, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text("Apply plan") }
+            Button(shape = Corner, onClick = onApply, enabled = canApply, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text("应用方案") }
             OutlinedButton(shape = Corner, onClick = onMeasure, enabled = canMeasure, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
-                Text(if (measuring) "Measuring..." else "Measure again")
+                Text(if (measuring) "正在测量…" else "重新测量")
             }
         }
-        Text("Values you set yourself are never changed.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("你自己设置的值永远不会被改动。", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         applied?.let { changes ->
             if (changes.isEmpty()) {
-                Text("Plan applied: every setting already had the plan's value.", fontSize = 13.sp, color = okColor())
+                Text("方案已应用：所有设置原本就已是方案中的取值。", fontSize = 13.sp, color = okColor())
             } else {
-                Text("Plan applied. ${if (changes.size == 1) "One setting changed" else "${changes.size} settings changed"}:", fontSize = 13.sp, color = okColor())
+                Text("方案已应用。${if (changes.size == 1) "已改动 1 项设置" else "已改动 ${changes.size} 项设置"}：", fontSize = 13.sp, color = okColor())
                 changes.forEach { c ->
                     Row(Modifier.fillMaxWidth().clickable { onOpenSetting(c.key) }.padding(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(c.label, fontSize = 13.sp, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
@@ -248,35 +246,35 @@ private fun PlanBody(
                     }
                 }
             }
-            if (reloadNeeded) Text("Some applied values need a model reload: Settings has the Reload.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (reloadNeeded) Text("部分已应用的值需要重新加载模型：可在“设置”页点击“重新加载”。", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 
     if (p.pools.isNotEmpty()) {
-        Section("Memory") { p.pools.forEach { MemoryPool(it) } }
+        Section("内存") { p.pools.forEach { MemoryPool(it) } }
     }
     if (p.devices.isNotEmpty()) {
-        Section("Devices") {
+        Section("设备") {
             val scale = p.devices.maxOf { it.promptRatio }.coerceAtLeast(1.0)
             p.devices.forEach { DeviceRow(it, scale) }
             if (p.devicesNoneText.isNotEmpty()) Text(p.devicesNoneText, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
-    Text("Decisions", style = MaterialTheme.typography.titleMedium)
+    Text("决策", style = MaterialTheme.typography.titleMedium)
     Decisions(p.decisions, onOpenSetting)
 
-    if (p.args.isNotEmpty()) Folded("Command") {
+    if (p.args.isNotEmpty()) Folded("启动命令") {
         SelectionContainer { Text("bmoe-cli " + p.args.joinToString(" "), fontFamily = CodeFont, fontSize = 11.sp) }
     }
-    // The planner's whole account is not shown (every line of it has a worded twin above); it goes on
-    // the clipboard with the command, for a bug report.
+    // 规划器的完整原始说明不直接显示（其中每一行在上方都有对应的通俗表述）；
+    // 它会随命令一起复制到剪贴板，便于提交问题报告。
     val clipboard = LocalClipboardManager.current
     val uri = LocalUriHandler.current
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedButton(shape = Corner, onClick = { clipboard.setText(AnnotatedString(diagnosticText(p.args, p.explain))); onCopied() }, modifier = Modifier.weight(1f)) {
-            Text("Copy diagnostic")
+            Text("复制诊断信息")
         }
-        TextButton(shape = Corner, onClick = { runCatching { uri.openUri(PLANNING_DOC) } }, modifier = Modifier.weight(1f)) { Text("How the planner decides") }
+        TextButton(shape = Corner, onClick = { runCatching { uri.openUri(PLANNING_DOC) } }, modifier = Modifier.weight(1f)) { Text("规划器的决策依据") }
     }
 }
 
@@ -285,26 +283,26 @@ private const val PLANNING_DOC = "https://github.com/Helldez/BigMoeOnEdge/blob/m
 @Composable
 private fun SpeedWell(f: PlanFigures, fromLastLoad: Boolean, modifier: Modifier) {
     Well(modifier) {
-        Text("Tokens", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Token 速率", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         when {
             f.measuredTokS != null -> {
-                Figure(fmt(f.measuredTokS), "tok/s measured")
+                Figure(fmt(f.measuredTokS), "实测 tok/s")
                 if (f.deltaPct != null && f.predictedTokS != null) {
                     if (fromLastLoad) {
                         Text(
-                            String.format(Locale.US, "%+.0f%% against the %s expected", f.deltaPct, fmt(f.predictedTokS)),
+                            String.format(Locale.US, "%+.0f%%，预期值为 %s", f.deltaPct, fmt(f.predictedTokS)),
                             fontSize = 12.sp, color = if (f.deltaPct >= 0) okColor() else warnColor(),
                         )
                     } else {
-                        Text("${fmt(f.predictedTokS)} tok/s expected under this plan", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("此方案预期 ${fmt(f.predictedTokS)} tok/s", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
             f.predictedTokS != null -> {
-                Figure(fmt(f.predictedTokS), "tok/s expected")
-                Text(if (fromLastLoad) "Measured after the first answer" else "Measured after a load", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Figure(fmt(f.predictedTokS), "预期 tok/s")
+                Text(if (fromLastLoad) "首次回答后测量" else "加载完成后测量", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            else -> Text("No prediction", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            else -> Text("无预测值", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -318,10 +316,10 @@ private fun MemoryWell(f: PlanFigures, modifier: Modifier) {
     }
     val held = f.heldBytes ?: 0
     Well(modifier) {
-        Text("Memory", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Figure(bytesLabel(held), "held")
+        Text("内存", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Figure(bytesLabel(held), "已占用")
         Meter((held.toDouble() / cap).toFloat(), MaterialTheme.colorScheme.primary)
-        Text("Of the ${bytesLabel(cap)} it may hold", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("可用上限为 ${bytesLabel(cap)}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -334,11 +332,11 @@ private fun HitsWell(f: PlanFigures, modifier: Modifier) {
         return
     }
     Well(modifier) {
-        Text("Cache hits", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Figure(String.format(Locale.US, "%.0f%%", measured ?: credited), if (measured != null) "measured" else "credited")
+        Text("缓存命中", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Figure(String.format(Locale.US, "%.0f%%", measured ?: credited), if (measured != null) "实测" else "计入")
         Meter(((measured ?: credited ?: 0.0) / 100).toFloat(), MaterialTheme.colorScheme.primary, mark = if (measured != null) credited?.let { (it / 100).toFloat() } else null)
         if (measured != null && credited != null) {
-            Text(String.format(Locale.US, "The mark is the %.0f%% credited", credited), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(String.format(Locale.US, "标记位置为计入的 %.0f%%", credited), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -350,13 +348,13 @@ private fun MemoryPool(pool: PlanPool) {
     val sum = held.sumOf { it.bytes }
     val whole = maxOf(pool.capBytes, sum).coerceAtLeast(1)
     val free = whole - sum
-    // The categorical series, not the theme's roles: those look alike side by side, and a bar of
-    // processes is read by telling its segments apart.
+    // 使用分类色板而非主题角色色：主题色在并排时难以区分，
+    // 而这种由多个进程组成的条状图正是靠区分各段来阅读的。
     val colours = tokens.series
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(pool.label + if (pool.estimated) " (an even share of the devices' sum)" else "", fontSize = 14.sp)
-            if (pool.capBytes > 0) Text("of " + bytesLabel(pool.capBytes), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(pool.label + if (pool.estimated) "（各设备均分）" else "", fontSize = 14.sp)
+            if (pool.capBytes > 0) Text("上限 " + bytesLabel(pool.capBytes), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Row(Modifier.fillMaxWidth().height(24.dp).clip(Corner).background(MaterialTheme.colorScheme.surfaceContainerHigh)) {
             held.forEachIndexed { i, r ->
@@ -369,19 +367,19 @@ private fun MemoryPool(pool: PlanPool) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Box(Modifier.size(12.dp).clip(MaterialTheme.shapes.extraSmall).background(colours[i % colours.size]))
                 Text(r.label, fontSize = 14.sp, modifier = Modifier.weight(1f))
-                if (r.locked) StatusBadge("locked", MaterialTheme.colorScheme.onSurfaceVariant)
+                if (r.locked) StatusBadge("已锁定", MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(bytesLabel(r.bytes), fontSize = 14.sp)
             }
         }
         if (free > 0) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Box(Modifier.size(12.dp).border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.extraSmall))
-                Text("Free", fontSize = 14.sp, modifier = Modifier.weight(1f))
+                Text("空闲", fontSize = 14.sp, modifier = Modifier.weight(1f))
                 Text(bytesLabel(free), fontSize = 14.sp)
             }
         }
         pool.rows.filter { it.inTurn }.forEach {
-            Text("${it.label}: ${bytesLabel(it.bytes)} borrowed from the expert cache while a prompt runs, given back after.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("${it.label}：处理提示词期间从专家缓存借用 ${bytesLabel(it.bytes)}，之后归还。", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -408,16 +406,16 @@ private fun DeviceRow(d: PlanDevice, scale: Double) {
 @Composable
 private fun Decisions(all: List<PlanDecision>, onOpenSetting: (String) -> Unit) {
     val by = all.groupBy { it.group.ifEmpty { "set" } }
-    by["set"]?.let { rows -> Tile { Text("Set by the plan · ${rows.size}", fontSize = 16.sp); rows.forEach { DecisionRow(it, onOpenSetting) } } }
+    by["set"]?.let { rows -> Tile { Text("由方案设定 · ${rows.size}", fontSize = 16.sp); rows.forEach { DecisionRow(it, onOpenSetting) } } }
     by["kept"]?.let { rows ->
-        Folded("Left as is · ${rows.size}", "Settings the plan looked at and left as they were.") { rows.forEach { DecisionRow(it, onOpenSetting) } }
+        Folded("维持原值 · ${rows.size}", "方案已评估、但保持原样的设置。") { rows.forEach { DecisionRow(it, onOpenSetting) } }
     }
     by["notes"]?.let { rows ->
-        Folded("Notes · ${rows.size}", "What the plan measured and weighed. None of these is a setting.") { rows.forEach { DecisionRow(it, onOpenSetting) } }
+        Folded("备注 · ${rows.size}", "方案测量与权衡的内容。这些都不是可设置项。") { rows.forEach { DecisionRow(it, onOpenSetting) } }
     }
 }
 
-/** One decision: its label and value; on a tap the one-line brief, the full reason behind Why, and the setting. */
+/** 单条决策：标签与取值；点击后显示一行摘要、展开“原因”可见完整理由，以及对应设置项。 */
 @Composable
 private fun DecisionRow(d: PlanDecision, onOpenSetting: (String) -> Unit) {
     var open by remember { mutableStateOf(false) }
@@ -434,18 +432,18 @@ private fun DecisionRow(d: PlanDecision, onOpenSetting: (String) -> Unit) {
             Column(Modifier.padding(start = 20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(d.brief.ifEmpty { d.reason }, fontSize = 13.sp)
                 if (d.brief.isNotEmpty() && d.brief != d.reason) {
-                    Text(if (why) "Why  v" else "Why  >", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable { why = !why })
+                    Text(if (why) "原因  v" else "原因  >", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable { why = !why })
                     if (why) Text(d.reason, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (d.label.isNotEmpty() && d.group != "notes") {
-                    Text("${d.label} in Settings", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable { onOpenSetting(d.knob) })
+                    Text("在设置中查看 ${d.label}", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable { onOpenSetting(d.knob) })
                 }
             }
         }
     }
 }
 
-/** A measurement in progress, in the server's words: done, running, how many to go. Models shows it during a load too. */
+/** 进行中的测量，采用服务端的说法：已完成、进行中、还剩多少项。“模型”页加载模型时也会显示。 */
 @Composable
 fun PlanProgressCard(p: PlanProgress?) {
     var done by remember { mutableStateOf(listOf<String>()) }
@@ -457,13 +455,13 @@ fun PlanProgressCard(p: PlanProgress?) {
         last = p.label
     }
     Tile {
-        Text("Measuring this phone", fontSize = 18.sp)
+        Text("正在测量这台手机", fontSize = 18.sp)
         Meter(if (p != null && p.count > 0) p.index.toFloat() / p.count else 0f, MaterialTheme.colorScheme.primary)
-        done.forEach { StepLine("done", okColor(), it) }
+        done.forEach { StepLine("完成", okColor(), it) }
         if (p != null) {
-            StepLine("running", MaterialTheme.colorScheme.primary, p.label)
+            StepLine("进行中", MaterialTheme.colorScheme.primary, p.label)
             val left = p.count - p.index - 1
-            if (left > 0) StepLine("next", MaterialTheme.colorScheme.onSurfaceVariant, "$left more")
+            if (left > 0) StepLine("待处理", MaterialTheme.colorScheme.onSurfaceVariant, "还有 $left 项")
         }
     }
 }
@@ -476,7 +474,7 @@ private fun StepLine(state: String, colour: Color, label: String) {
     }
 }
 
-// ── small pieces: the card, the well, the meter, the badge (docs/design.md) ──
+// ── 小组件：卡片、数据块、进度条、徽标（见 docs/design.md） ──
 
 @Composable
 private fun Tile(content: @Composable ColumnScope.() -> Unit) {

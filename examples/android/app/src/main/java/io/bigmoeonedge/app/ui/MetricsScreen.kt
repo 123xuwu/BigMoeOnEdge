@@ -44,18 +44,18 @@ import java.util.Locale
 import kotlin.math.abs
 
 /**
- * Reads back the per-token CSVs this app wrote from the server's token events (one per loaded
+ * 读回本应用根据服务端 token 事件写出的逐 token CSV（每个已加载会话一个，见 MetricsRecorder）：查看其中一个、分享一个或把两个文件的同一列画在一起作对比。
  * session, see MetricsRecorder): view one, share one, or plot one column of two against each other.
  *
- * The compare view is the point. A claim like "this setting cuts the fault storm" is not settled by
- * a number in a summary — it is settled by seeing the same column from a run with the feature off
- * and a run with it on, on one axis.
+ * 对比视图才是重点。像“这个设置抑制了缺页风暴”这样的说法，不是靠摘要里的一个
+ * 数字就能定论的——它要靠把关闭该特性的一次运行与开启该特性的一次运行中同一列，
+ * 画在同一坐标轴上看，才能定论。
  *
- * This file is the views. Reading and parsing the CSVs, naming a run, the chart arithmetic and the
- * share intent live in [MetricsCsv.kt] — nothing here touches a file.
+ * 本文件只负责视图。CSV 的读取与解析、运行命名、图表算术和分享意图都在
+ * [MetricsCsv.kt] —— 这里不直接接触任何文件。
  */
-// What the screen is showing. picked = view one file; correlating = overlay one file's own columns;
-// comparing = two files' same column; glossary = the field reference.
+// 当前屏幕在展示什么。picked = 查看单个文件；correlating = 叠加单个文件自身的列；
+// comparing = 比较两个文件的同一列；glossary = 字段说明。
 private enum class View { LIST, FILE, CORRELATE, COMPARE, GLOSSARY }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -73,7 +73,7 @@ fun MetricsScreen(modifier: Modifier = Modifier, onBack: (() -> Unit)? = null) {
             ?: emptyList()
     }
 
-    // Back steps one level toward the list; the list is the screen's home.
+    // 返回会往列表退一级；列表就是这个屏幕的首页。
     fun back() {
         when (view) {
             View.CORRELATE -> view = View.FILE
@@ -81,7 +81,7 @@ fun MetricsScreen(modifier: Modifier = Modifier, onBack: (() -> Unit)? = null) {
             View.LIST -> onBack?.invoke()
         }
     }
-    // The system back steps the same way, and from the list leaves for wherever the screen was opened from.
+    // 系统返回键走同样的路径，而在列表页则退回到打开本屏幕的地方。
     BackHandler(enabled = view != View.LIST || onBack != null) { back() }
 
     Scaffold(
@@ -91,11 +91,11 @@ fun MetricsScreen(modifier: Modifier = Modifier, onBack: (() -> Unit)? = null) {
                 title = {
                     Text(
                         when (view) {
-                            View.COMPARE -> "Compare files"
-                            View.CORRELATE -> "Correlate fields"
-                            View.GLOSSARY -> "What the fields mean"
-                            View.FILE -> picked?.name ?: "Metrics"
-                            View.LIST -> "Metrics"
+                            View.COMPARE -> "比较文件"
+                            View.CORRELATE -> "字段相关性"
+                            View.GLOSSARY -> "字段含义"
+                            View.FILE -> picked?.name ?: "指标"
+                            View.LIST -> "指标"
                         },
                         maxLines = 1,
                     )
@@ -103,7 +103,7 @@ fun MetricsScreen(modifier: Modifier = Modifier, onBack: (() -> Unit)? = null) {
                 navigationIcon = {
                     if (view != View.LIST || onBack != null) {
                         IconButton(onClick = { back() }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                         }
                     } else {
                         Box(Modifier.padding(start = 16.dp)) { BrandMark(wordmark = false) }
@@ -111,8 +111,8 @@ fun MetricsScreen(modifier: Modifier = Modifier, onBack: (() -> Unit)? = null) {
                 },
                 actions = {
                     if (view == View.FILE) {
-                        TextButton(shape = Corner, onClick = { view = View.CORRELATE }) { Text("Correlate") }
-                        picked?.let { f -> TextButton(shape = Corner, onClick = { shareCsv(context, listOf(f)) }) { Text("Share") } }
+                        TextButton(shape = Corner, onClick = { view = View.CORRELATE }) { Text("字段相关性") }
+                        picked?.let { f -> TextButton(shape = Corner, onClick = { shareCsv(context, listOf(f)) }) { Text("分享") } }
                     }
                     if (view == View.LIST || view == View.FILE || view == View.COMPARE) {
                         TextButton(shape = Corner, onClick = { view = View.GLOSSARY }) { Text("?") }
@@ -124,12 +124,12 @@ fun MetricsScreen(modifier: Modifier = Modifier, onBack: (() -> Unit)? = null) {
             if (view == View.LIST && selection.isNotEmpty()) {
                 BottomAppBar {
                     Spacer(Modifier.width(12.dp))
-                    Text("${selection.size} selected", modifier = Modifier.weight(1f), fontSize = 13.sp)
-                    TextButton(shape = Corner, onClick = { shareCsv(context, selection) }) { Text("Share") }
+                    Text("已选择 ${selection.size} 个", modifier = Modifier.weight(1f), fontSize = 13.sp)
+                    TextButton(shape = Corner, onClick = { shareCsv(context, selection) }) { Text("分享") }
                     TextButton(shape = Corner,
                         onClick = { view = View.COMPARE },
                         enabled = selection.size == 2,
-                    ) { Text("Compare") }
+                    ) { Text("比较") }
                     Spacer(Modifier.width(8.dp))
                 }
             }
@@ -150,7 +150,7 @@ fun MetricsScreen(modifier: Modifier = Modifier, onBack: (() -> Unit)? = null) {
                     selection = when {
                         selection.contains(f) -> selection - f
                         selection.size < 2 -> selection + f
-                        else -> listOf(selection[1], f) // a third pick replaces the oldest
+                        else -> listOf(selection[1], f) // 第三次选择会替换掉最旧的那个
                     }
                 },
                 onDelete = { f -> f.delete(); selection = selection - f; refresh++ },
@@ -169,18 +169,18 @@ private fun FileList(
     onDelete: (File) -> Unit,
 ) {
     val stamp = SimpleDateFormat("d MMM HH:mm:ss", Locale.getDefault())
-    // A run's identity, not its filename: the model's initial and each turn's tok/s, read from the
-    // preamble and summaries. Computed once per file list — the files are small and few.
+    // 一次运行的标识，而不是它的文件名：模型的名称首字母加上每一轮的 tok/s，
+    // 从序言和摘要中读出。每份文件列表只计算一次——文件既小又少。
     val titles = remember(files) { files.associateWith { runTitle(it) } }
     LazyColumn(modifier.fillMaxSize()) {
         item { LiveCard() }
         if (files.isEmpty()) {
             item {
                 Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("No metrics files yet.", fontWeight = FontWeight.Medium)
+                    Text("还没有指标文件。", fontWeight = FontWeight.Medium)
                     Text(
-                        "Turn on Settings → This app → Metrics CSV, then run a prompt. One file is written " +
-                            "per loaded model, covering every turn in it. Tick two to compare them.",
+                        "在 设置 → 本应用 → 指标 CSV 中开启，然后运行一次提示词。每加载一个模型" +
+                            "就会写出一个文件，覆盖其中的每一轮。勾选两个即可对比它们。",
                         fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -196,16 +196,16 @@ private fun FileList(
                     Text(title.ifEmpty { f.name }, fontWeight = FontWeight.Medium, fontSize = 15.sp)
                 },
                 supportingContent = {
-                    // Timestamp + size, then the bare filename (the ID is now the headline). The
-                    // filename drops its fixed "bmoe-" prefix and ".csv" tail — it is only there to
-                    // match a shared file, and the stamp already carries the date.
+                    // 先是时间戳 + 大小，然后是纯文件名（标识现在已经是标题了）。
+                    // 文件名会去掉固定的 "bmoe-" 前缀和 ".csv" 后缀——它只是为了
+                    // 匹配分享出去的文件，而时间戳本身已经带了日期。
                     val short = f.name.removePrefix("bmoe-").removeSuffix(".csv")
                     Text(
                         "${stamp.format(Date(f.lastModified()))} · ${f.length() / 1024} KiB · $short",
                         fontSize = 11.sp, maxLines = 1,
                     )
                 },
-                trailingContent = { TextButton(shape = Corner, onClick = { onDelete(f) }) { Text("Delete") } },
+                trailingContent = { TextButton(shape = Corner, onClick = { onDelete(f) }) { Text("删除") } },
                 modifier = Modifier.clickable(onClick = { onPick(f) }),
             )
             HorizontalDivider()
@@ -217,49 +217,49 @@ private fun FileList(
 @Composable
 private fun CsvView(file: File, modifier: Modifier) {
     val glossary = rememberGlossary()
-    // One row per token — thousands at worst, ~112 bytes each — so the whole file fits in memory
-    // and there is nothing to gain from streaming it.
+    // 每个 token 一行——最坏也就几千行，每行约 112 字节——所以整个文件可以直接放进内存，
+    // 流式读取并无收益。
     val csv = remember(file) { Csv.read(file) }
-    // One horizontal scroll shared by the header and every row, so the columns stay aligned. Each
-    // scrollable Row observes and mutates this one state, so dragging any of them moves them all.
+    // 表头和每一行共用同一个横向滚动，这样各列才能保持对齐。每个
+    // 可滚动的 Row 都读写这同一份状态，所以拖动其中任意一个，它们会一起移动。
     val hscroll = rememberScrollState()
-    // Held here rather than inside the lazy item so scrolling the config card off-screen does not
-    // collapse it again.
+    // 状态放在这里而不是放进 lazy item，这样把配置卡片滚出屏幕后
+    // 它不会又折叠回去。
     var showConfig by remember(file) { mutableStateOf(false) }
-    // The whole view is one vertical scroller. The config card, the per-turn summaries and the
-    // caption are lazy items, NOT a fixed block above the list — a fixed block grows one summary
-    // card per turn and eventually pushes the last token rows off-screen with nothing able to
-    // reach them (#53). As items they scroll away with the content; the column header stays put via
-    // stickyHeader.
+    // 整个视图就是一个纵向滚动区。配置卡片、逐轮摘要和说明文字都是
+    // lazy item，而不是列表上方的固定块——固定块会随轮数增加而增长出一张张摘要
+    // 卡片，最终把最后的 token 行挤出屏幕，而且没有任何办法
+    // 能滚动到它们（#53）。作为 item，它们会随内容一起滚走；列标题则通过
+    // stickyHeader 固定不动。
     LazyColumn(modifier.fillMaxSize()) {
-        // What the run was, before what it did. A file whose configuration is unknown is a file
-        // whose numbers cannot be compared to anything.
+        // 先呈现这次运行是什么，再呈现它做了什么。配置未知的文件，就是一个
+        // 其数字无法与任何东西比较的文件。
         if (csv.info.isNotEmpty()) {
             item {
                 Surface(color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        // 会话的关键事实一览，来自服务端在加载时的报告。
                         Text(csv.label(glossary), fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                        // The session's facts at a glance, as the server reported them at load.
                         Text(
                             PreambleFacts.all.filter { it.key != PreambleFacts.MODEL }
                                 .mapNotNull { f -> csv.info[f.key]?.let { "${f.label} ${glossary.value(f.key, it)}" } }
                                 .joinToString(" · "),
                             fontSize = 11.sp,
                         )
-                        // The lines above are a glance, not the record: they name a handful of
-                        // settings out of the thirty-odd the preamble carries, and the ones they
-                        // leave out (expert dropping above all, which changes the OUTPUT and not
-                        // just the speed) are the ones a saved run is least able to state
-                        // otherwise. Everything the file says is one tap away, and stays one tap
-                        // away as the engine grows knobs. See #136.
+                        // 上面这几行只是一瞥，不是完整记录：它们只列出序言中
+                        // 三十来个设置里的寥寥数个，而它们刻意略去的那些
+// （尤其是专家卸载，它改变的是输出而非仅仅速度）恰恰是一次已保存的
+                        // 运行最难以其他方式说明的东西。
+                        // 其余部分。文件里的一切都在一次点击之外，并随着引擎增加
+                        // 新的开关，始终只差一次点击。见 #136。
                         val rows = remember(csv, glossary) { glossary.rows(csv.info) }
                         TextButton(shape = Corner,
                             onClick = { showConfig = !showConfig },
                             contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
                         ) {
                             Text(
-                                if (showConfig) "Hide full configuration"
-                                else "Full configuration (${rows.size} settings)",
+                                if (showConfig) "隐藏完整配置"
+                                else "完整配置（${rows.size} 项设置）",
                                 fontSize = 11.sp,
                             )
                         }
@@ -281,14 +281,14 @@ private fun CsvView(file: File, modifier: Modifier) {
         }
         item {
             Text(
-                "${csv.rows.size} tokens · ${csv.header.size} columns · scroll sideways for all of them",
+                "${csv.rows.size} 个 token · ${csv.header.size} 列 · 横向滚动可查看全部",
                 fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
             )
         }
-        // The column header pins to the top of the list as the rows scroll under it. Wrapped in an
-        // opaque Surface so the token rows do not show through it, and carrying the shared hscroll
-        // so it slides sideways in lockstep with the rows.
+        // 表头会固定在列表顶部，而行在它下面滚动。外层包一个
+        // 不透明的 Surface，这样 token 行不会透出来；同时携带共享的横向滚动状态，
+        // 让它和各行同步横向滑动。
         stickyHeader {
             Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth()) {
                 Column {
@@ -324,11 +324,11 @@ private fun CompareView(fa: File, fb: File, modifier: Modifier) {
     val glossary = rememberGlossary()
     val a = remember(fa) { Csv.read(fa) }
     val b = remember(fb) { Csv.read(fb) }
-    // Only columns both files actually have: plotting a series against a blank is not a comparison.
+    // 只保留两个文件都有的列：把一条序列画在空白上，算不上比较。
     val metrics = remember(a, b) { a.plottable().filter { it in b.plottable() } }
-    // Open on a column that actually moves. This used to default to cache_budget_mib, back when a
-    // governor made it move under pressure; the budget is fixed for a run now, so that default
-    // opened the view on a flat line. The hit rate is what a config change shows up in first.
+    // 默认打开一列真正会动的指标。以前这里默认用 cache_budget_mib，那时还有
+    // 调控器会在压力下让它变动；现在预算在一次运行内是固定的，所以那个默认值
+    // 会让视图打开时是一条平线。命中率才是配置变化最先反映出来的地方。
     var metric by remember(metrics) {
         mutableStateOf(metrics.firstOrNull { it == "cache_hit_pct" } ?: metrics.firstOrNull() ?: "")
     }
@@ -338,18 +338,18 @@ private fun CompareView(fa: File, fb: File, modifier: Modifier) {
     val colorB = MaterialTheme.colorScheme.error
 
     if (metrics.isEmpty()) {
-        Box(modifier.fillMaxSize().padding(12.dp)) { Text("These two files share no numeric column.", fontSize = 13.sp) }
+        Box(modifier.fillMaxSize().padding(12.dp)) { Text("这两个文件没有共同的数值列。", fontSize = 13.sp) }
         return
     }
 
-    // The content is taller than the screen (chart + legends + two full configs), so it scrolls.
+    // 内容比屏幕高（图表 + 图例 + 两份完整配置），所以可以滚动。
     val changed = remember(a, b) { (a.info.keys + b.info.keys).filter { a.info[it] != b.info[it] }.toSet() }
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Box {
-            OutlinedButton(shape = Corner, onClick = { expanded = true }) { Text(metric.ifEmpty { "pick a column" }) }
+            OutlinedButton(shape = Corner, onClick = { expanded = true }) { Text(metric.ifEmpty { "选择一列" }) }
             DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                 metrics.forEach { m ->
                     DropdownMenuItem(
@@ -368,13 +368,13 @@ private fun CompareView(fa: File, fb: File, modifier: Modifier) {
         Legend(fa.name, a.label(glossary), colorA, sa)
         Legend(fb.name, b.label(glossary), colorB, sb)
         Text(
-            "x = token index within the file (turns run end to end). Both series share one y scale, " +
-                "which is the only way the comparison means anything.",
+            "x = 文件内的 token 序号（各轮首尾相接）。两条曲线共用一个 y 轴刻度，" +
+                "这是让比较有意义的唯一方式。",
             fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        // The full configuration of each run, changed settings highlighted — not just the diff, so a
-        // setting that stayed the same (was dense=warm in both?) is still there to read.
-        Text("Configuration", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        // 每次运行的完整配置，改动的设置会高亮——不是只给差异，这样
+        // 保持不变的设置（两边都是 dense=warm？）依然可以读到。
+        Text("配置", fontSize = 13.sp, fontWeight = FontWeight.Bold)
         FullConfig(a, colorA, changed)
         FullConfig(b, colorB, changed)
     }
@@ -386,13 +386,13 @@ private fun Legend(name: String, label: String, color: Color, series: List<Float
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Canvas(Modifier.size(12.dp).padding(top = 3.dp)) { drawRect(color) }
         Column {
-            // The configuration first, the file name second: which run this is matters more than
-            // what it happens to be called.
+            // 先显示配置，再显示文件名：这是哪一次运行比它碰巧叫什么
+            // 更重要。
             if (label.isNotEmpty()) Text(label, fontSize = 11.sp, fontWeight = FontWeight.Medium)
             Text(name, fontFamily = CodeFont, fontSize = 10.sp, maxLines = 1,
                  color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(
-                if (vals.isEmpty()) "no data" else
+                if (vals.isEmpty()) "无数据" else
                     "n=${vals.size}  min=${fmt(vals.min())}  mean=${fmt(vals.average().toFloat())}  max=${fmt(vals.max())}",
                 fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -408,15 +408,15 @@ private fun rememberGlossary(): ConfigGlossary {
 }
 
 /**
- * The complete run configuration of one file — every field from the preamble, present or absent.
- * `changed` marks the settings that differ from the other file, so "what changed" is still obvious
- * without hiding "what did not".
+ * 单个文件的完整运行配置——序言中的每个字段，无论是否存在。
+ * `changed` 标记与其他文件不同的设置，这样“什么变了”依然一目了然，
+ * 同时也不会隐藏“什么没变”。
  */
 @Composable
 private fun FullConfig(csv: Csv, accent: Color, changed: Set<String>) {
     val glossary = rememberGlossary()
     if (csv.info.isEmpty()) {
-        Text("No run header in this file — its configuration is unknown.",
+        Text("此文件没有运行头信息——其配置未知。",
              fontSize = 11.sp, color = MaterialTheme.colorScheme.error)
         return
     }
@@ -432,8 +432,8 @@ private fun FullConfig(csv: Csv, accent: Color, changed: Set<String>) {
 }
 
 /**
- * Every configuration row of one run, [changed] ones highlighted in [accent]. Shared by the single
- * file view and the compare view so the two can never disagree about what a file says it was.
+ * 一次运行的全部配置行，[changed] 中的项用 [accent] 高亮。由单文件
+ * 视图与对比视图共用，这样两者对“文件自称的配置”永远不会给出不同说法。
  */
 @Composable
 private fun ConfigRows(rows: List<Triple<String, String, String>>, accent: Color, changed: Set<String>) {
@@ -446,7 +446,7 @@ private fun ConfigRows(rows: List<Triple<String, String, String>>, accent: Color
                 value,
                 fontSize = 11.sp,
                 fontFamily = CodeFont,
-                // A changed setting is the reason to be here; make it the thing the eye lands on.
+                // 被改动的设置正是看它的理由；让它成为视线落点。
                 fontWeight = if (isChanged) FontWeight.Bold else FontWeight.Normal,
                 color = if (isChanged) accent else MaterialTheme.colorScheme.onSurface,
             )
@@ -455,12 +455,12 @@ private fun ConfigRows(rows: List<Triple<String, String, String>>, accent: Color
 }
 
 /**
- * One series as a stroked path, mapped into the y range [lo]..[hi] over [n] x slots.
+ * 一条序列绘制成描边路径，在 [n] 个 x 槽位上映射到 y 范围 [lo]..[hi]。
  *
- * Where that range comes from is the entire difference between the two charts here — one shared
- * range for the two-file compare, a per-series range for the correlate overlay — so it stays with
- * the caller. What they share is this: a null is a gap, and a gap is never bridged, because a line
- * interpolated across missing data is a lie about data that isn't there.
+ * 这个范围从哪来，正是此处两张图表的全部差别——两文件对比共用一个
+ * 范围，相关性叠加为每条序列单独取范围——所以它由调用方决定。它们的共同点是：
+ * null 就是断点，断点绝不桥接，因为跨缺失数据插值出来的线，是对并不存在的
+ * 数据的谎言。
  */
 private fun DrawScope.drawSeries(values: List<Float?>, n: Int, lo: Float, hi: Float, color: Color) {
     val span = (hi - lo).takeIf { it > 1e-6f } ?: 1f
@@ -476,30 +476,30 @@ private fun DrawScope.drawSeries(values: List<Float?>, n: Int, lo: Float, hi: Fl
 }
 
 /**
- * Two series on one pair of axes, drawn by hand rather than by pulling in a charting library for a
- * single plot. Both share one y range: two auto-scaled axes would make any two runs look alike,
- * which is the opposite of the job.
+ * 两条序列共用一对坐标轴，手工绘制，而不是为了单独一张图引入图表库——
+ * 两者共用一个 y 轴范围：两条自动缩放的轴会让任意两次运行看起来都一样，
+ * 那正是这个任务的反面。
  */
 @Composable
 private fun LineChart(a: List<Float?>, b: List<Float?>, colorA: Color, colorB: Color, modifier: Modifier) {
     val grid = MaterialTheme.colorScheme.outlineVariant
     val all = (a + b).filterNotNull()
     if (all.isEmpty()) {
-        Box(modifier) { Text("nothing to plot", fontSize = 12.sp) }
+        Box(modifier) { Text("没有可绘制的数据", fontSize = 12.sp) }
         return
     }
     var lo = all.min()
     var hi = all.max()
-    if (hi - lo < 1e-6f) { hi += 1f; lo -= 1f } // a flat series is a fact, not a divide-by-zero
+    if (hi - lo < 1e-6f) { hi += 1f; lo -= 1f } // 平直的序列是一个事实，不是除以零
     val n = maxOf(a.size, b.size, 2)
 
     Canvas(modifier) {
-        // Three gridlines: enough to read a level off, few enough not to be a cage.
+        // 三条网格线：足以读出数值水平，又少到不至于变成牢笼。
         listOf(0f, 0.5f, 1f).forEach { t ->
             val yy = size.height * t
             drawLine(grid, Offset(0f, yy), Offset(size.width, yy), strokeWidth = 1f)
         }
-        // One range for both — that shared scale IS the comparison.
+        // 两者共用一个范围——这个共享刻度本身就是比较。
         drawSeries(a, n, lo, hi, colorA)
         drawSeries(b, n, lo, hi, colorB)
     }
@@ -509,15 +509,15 @@ private fun LineChart(a: List<Float?>, b: List<Float?>, colorA: Color, colorB: C
     }
 }
 
-// ── the field reference ─────────────────────────────────────────────────────────────────────────
+// ── 字段说明 ─────────────────────────────────────────────────────────────────────────────────
+/** “越低越好” / “越高越好” / “视情况”，带颜色，三个字符加一个词。 */
 
-/** "lower is better" / "higher is better" / "depends", coloured, in three characters plus a word. */
 @Composable
 private fun BetterBadge(better: Better) {
     val (text, color) = when (better) {
-        Better.LOWER -> "↓ lower better" to MaterialTheme.colorScheme.primary
-        Better.HIGHER -> "↑ higher better" to MaterialTheme.colorScheme.primary
-        Better.NEUTRAL -> "– depends" to MaterialTheme.colorScheme.onSurfaceVariant
+        Better.LOWER -> "↓ 越低越好" to MaterialTheme.colorScheme.primary
+        Better.HIGHER -> "↑ 越高越好" to MaterialTheme.colorScheme.primary
+        Better.NEUTRAL -> "– 视情况" to MaterialTheme.colorScheme.onSurfaceVariant
     }
     Text(text, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = color)
 }
@@ -539,13 +539,13 @@ private fun FieldNote(name: String) {
 private fun GlossaryView(modifier: Modifier) {
     val glossary = rememberGlossary()
     LazyColumn(modifier.fillMaxSize().padding(horizontal = 12.dp)) {
-        // Two halves, in the order a file is read: the preamble says what the run was configured
-        // with, the columns say what it then measured.
+        // 分两半，按读取文件的顺序：序言说明这次运行是用什么配置跑起来的，
+        // 各列说明它之后测到了什么。
         item {
             GlossarySection(
-                "Per-token columns",
-                "One row per generated token. \"depends\" means neither direction is simply good — a " +
-                    "bigger cache buys hits but risks the reclaim war, and mem_available lies.",
+                "逐 token 列",
+                "每个生成的 token 一行。\"视情况\"表示两个方向都不能简单说好——更" +
+                    "大的缓存能换来命中，但也会招致回收之争，而 mem_available 并不诚实。",
                 top = 10.dp,
             )
         }
@@ -560,33 +560,33 @@ private fun GlossaryView(modifier: Modifier) {
             }
             HorizontalDivider()
         }
-        // The configuration half. Showing a run's whole preamble (#136) is only half an answer while
-        // the settings it names go unexplained — several are unguessable from the key alone, and one
-        // (predict_spec_max) is actively misleading read as a bare number.
+        // 配置那一半。只展示一次运行的完整序言（#136）仍只是一半答案，因为
+        // 其中列出的设置若不加解释——有几项单看键名根本猜不出来，还有一项
+        // （predict_spec_max）当成裸数字读会主动误导人。
         item {
             GlossarySection(
-                "Run configuration",
-                "The preamble at the top of every file: what the run was configured with, as opposed " +
-                    "to what it measured. Two files whose engine, dropping or prediction differ are " +
-                    "two experiments, not a comparison.",
+                "运行配置",
+                "每个文件顶部的序言：说明这次运行用什么配置跑起来，相对于" +
+                    "它测到了什么。引擎、卸载或预测方式不同的两个文件，是" +
+                    "两次实验，而不是一次比较。",
                 top = 24.dp,
             )
         }
         items(PreambleFacts.all) { f ->
             GlossaryEntry(f.key, f.label, f.what)
         }
-        // Every setting, from the parameter table: its label and help are the engine's own words,
-        // so a reader who follows a setting into Settings or the code finds the same sentence.
+        // 每一项设置都来自参数表：它的标签和帮助文本就是引擎自己的表述，
+        // 所以读者顺着某项设置去 设置 页或代码里看，能找到同一句话。
         if (glossary.params.isEmpty()) {
             item {
                 Text(
-                    "The settings are explained by the engine's parameter table, which arrives once the engine is running.",
+                    "这些设置的说明来自引擎的参数表，参数表会在引擎启动后送达。",
                     fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
         items(glossary.params) { p ->
-            GlossaryEntry(ConfigGlossary.preambleKey(p.key), p.label + if (p.lossy) " (changes the reply)" else "", p.help)
+            GlossaryEntry(ConfigGlossary.preambleKey(p.key), p.label + if (p.lossy) "（会改变回复）" else "", p.help)
         }
     }
 }
@@ -610,26 +610,26 @@ private fun GlossarySection(title: String, blurb: String, top: androidx.compose.
     }
 }
 
-// ── correlate: one file's own columns, normalized, on one axis ──────────────────────────────────
+// ── 相关性：把单个文件自身的多列归一化后画在同一坐标轴上 ─────────────────────────────────────────
 
 /**
- * Overlays several of a file's columns after squashing each to 0..1, so their SHAPES can be
- * compared even though their units cannot. The question it answers is "when this rises, does that
- * rise too" — e.g. does rss_anon fall exactly as majflt spikes, which says the faults are the cache
- * being taken and not the model. A Pearson r against the first-picked column puts a number on it.
+ * 把一个文件的多列各自压缩到 0..1 后叠加显示，这样即使单位不同，也能比较它们的
+ * 形状。它回答的问题是“这个上升时，那个是否也上升”——例如 rss_anon 是否恰好在
+ * majflt 尖峰时下降，这说明缺页是缓存被夺走造成的，而不是模型。对第一个选中的
+ * 列计算皮尔逊 r，可以把它量化成一个数字。
  *
- * Normalization is per-column min..max: it discards magnitude on purpose. A flat line means the
- * column did not vary, not that it was zero — the legend keeps the real min/max so nothing is lost.
+ * 归一化是逐列的 min..max：这是有意丢弃量纲。平直线意味着该列没有变化，
+ * 而不是它的值为零——图例会保留真实的最小/最大值，所以信息没有丢失。
  */
 @Composable
 private fun CorrelateView(file: File, modifier: Modifier) {
     val csv = remember(file) { Csv.read(file) }
     val cols = remember(csv) { csv.plottable() }
-    // Start on the memory war: what the kernel took back (rss_anon_mib), what that cost in re-reads
-    // (majflt_mib), and how much of the dense set survived (dense_resident_frac) — which is what
-    // tells "the faults are the model" apart from "the faults are the cache". The third used to be
-    // cache_budget_mib, back when a governor moved it under pressure; it is fixed for the run now,
-    // so it opened this view on a flat line.
+    // 从内存之争开始：内核收回了多少（rss_anon_mib）、这以重读为代价换来了什么
+    // （majflt_mib），以及密集集合有多少存活下来（dense_resident_frac）——这正是
+    // 用来区分“缺页来自模型”和“缺页来自缓存”的依据。第三项以前是
+    // cache_budget_mib，那时还有调控器会在压力下改变它；现在一次运行内它是固定的，
+    // 所以它会让这个视图打开时是一条平线。
     var chosen by remember(cols) {
         mutableStateOf(
             cols.filter { it in setOf("majflt_mib", "rss_anon_mib", "dense_resident_frac") }.ifEmpty { cols.take(2) }
@@ -646,7 +646,7 @@ private fun CorrelateView(file: File, modifier: Modifier) {
     )
 
     if (cols.isEmpty()) {
-        Box(modifier.fillMaxSize().padding(12.dp)) { Text("This file has no numeric columns to correlate.", fontSize = 13.sp) }
+        Box(modifier.fillMaxSize().padding(12.dp)) { Text("此文件没有可做相关性的数值列。", fontSize = 13.sp) }
         return
     }
     Column(
@@ -656,7 +656,7 @@ private fun CorrelateView(file: File, modifier: Modifier) {
         if (csv.info.isNotEmpty()) Text(csv.label(rememberGlossary()), fontSize = 12.sp, fontWeight = FontWeight.Medium)
 
         Box {
-            OutlinedButton(shape = Corner, onClick = { expanded = true }) { Text("Fields (${chosen.size})") }
+            OutlinedButton(shape = Corner, onClick = { expanded = true }) { Text("字段（${chosen.size})") }
             DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                 cols.forEach { c ->
                     DropdownMenuItem(
@@ -667,7 +667,7 @@ private fun CorrelateView(file: File, modifier: Modifier) {
                                 Text(c, fontFamily = CodeFont, fontSize = 13.sp)
                             }
                         },
-                        // Cap at the palette size: more lines than colours is not a chart, it is a knot.
+                        // 上限为调色板的大小：线比颜色多就不是图表，而是一团乱麻。
                         onClick = {
                             chosen = if (c in chosen) chosen - c
                             else if (chosen.size < palette.size) chosen + c else chosen
@@ -680,8 +680,8 @@ private fun CorrelateView(file: File, modifier: Modifier) {
         val series = chosen.map { it to (csv.column(it) ?: emptyList()) }
         MultiLineChart(series.map { it.second }, palette, Modifier.fillMaxWidth().height(240.dp))
 
-        // Pearson r of every series against the first-picked one — the pivot. |r|→1 is tight
-        // correlation, sign says direction, ~0 says the two move independently.
+        // 每条序列相对第一个选中项（枢轴）的皮尔逊 r。|r|→1 是紧密
+        // 相关，符号表示方向，约等于 0 表示两者独立变动。
         val pivot = series.firstOrNull()
         chosen.forEachIndexed { i, name ->
             val col = MetricFields.of(name)
@@ -692,7 +692,7 @@ private fun CorrelateView(file: File, modifier: Modifier) {
                 Column {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(name, fontFamily = CodeFont, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        if (i == 0) Text("pivot", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+                        if (i == 0) Text("枢轴", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
                         else if (r != null) Text("r=${fmt(r)} ${corrWord(r)}", fontSize = 11.sp, fontWeight = FontWeight.Medium)
                     }
                     if (col != null) Text(col.short, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -704,46 +704,46 @@ private fun CorrelateView(file: File, modifier: Modifier) {
             }
         }
         Text(
-            "Each line is squashed to its own 0..1, so only the SHAPES compare — the legend keeps the " +
-                "real range. r is vs the first field (the pivot): near ±1 they move together, near 0 they do not.",
+            "每条线各自压缩到自己的 0..1，所以只有形状可比——图例保留了" +
+                "真实范围。r 是相对第一个字段（枢轴）计算的：接近 ±1 时它们同向而动，接近 0 则不相关。",
             fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        // The run this file came from, in full — the correlations mean nothing without knowing the
-        // configuration that produced them.
-        Text("Configuration", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        // 这个文件来自哪次运行，完整呈现——不知道产生这些数据的配置，
+        // 相关系数毫无意义。
+        Text("配置", fontSize = 13.sp, fontWeight = FontWeight.Bold)
         FullConfig(csv, MaterialTheme.colorScheme.primary, emptySet())
     }
 }
 
 /** How to say a correlation out loud, so the number is not the only cue. */
 private fun corrWord(r: Float): String = when {
-    abs(r) >= 0.8f -> if (r > 0) "moves together" else "moves opposite"
-    abs(r) >= 0.4f -> if (r > 0) "loosely together" else "loosely opposite"
-    else -> "unrelated"
+    abs(r) >= 0.8f -> if (r > 0) "同向变动" else "反向变动"
+    abs(r) >= 0.4f -> if (r > 0) "弱同向" else "弱反向"
+    else -> "不相关"
 }
 
 /**
- * N series on one axis, each independently normalized to 0..1. Unlike the two-file compare (one
- * shared scale, because there the magnitudes ARE the comparison), here the magnitudes are unlike by
- * construction — cache_budget in GiB against dense_resident_frac in [0,1] — so each gets its own scale
- * and only the shapes are claimed to line up.
+ * 同一坐标轴上的 N 条序列，每条独立归一化到 0..1。不同于两文件对比（那里共用
+ * 一个刻度，因为在那儿量值本身就是比较对象），这里的量值在构造上就互不相同——
+ * cache_budget 以 GiB 计，而 dense_resident_frac 在 [0,1]——所以每条各用自己的刻度，
+ * 只声称它们的形状能对得上。
  */
 @Composable
 private fun MultiLineChart(series: List<List<Float?>>, palette: List<Color>, modifier: Modifier) {
     val grid = MaterialTheme.colorScheme.outlineVariant
     if (series.all { it.filterNotNull().isEmpty() }) {
-        Box(modifier) { Text("pick at least one field", fontSize = 12.sp) }
+        Box(modifier) { Text("请至少选择一个字段", fontSize = 12.sp) }
         return
     }
     val n = maxOf(series.maxOfOrNull { it.size } ?: 2, 2)
-    // Per-series min/max, computed once: normalization is min..max within each column.
+    // 逐序列的最小/最大值，只计算一次：归一化就是每列内部的 min..max。
     val ranges = series.map { s -> s.filterNotNull().let { v -> (v.minOrNull() ?: 0f) to (v.maxOrNull() ?: 1f) } }
 
     Canvas(modifier) {
         val w = size.width; val h = size.height
         listOf(0f, 0.5f, 1f).forEach { t -> drawLine(grid, Offset(0f, h * t), Offset(w, h * t), strokeWidth = 1f) }
         series.forEachIndexed { si, s ->
-            // Each series on its own range: only the shapes are being claimed to line up.
+            // 每条序列用自己的范围：这里只声称形状能对得上。
             val (lo, hi) = ranges[si]
             drawSeries(s, n, lo, hi, palette[si % palette.size])
         }
@@ -751,9 +751,9 @@ private fun MultiLineChart(series: List<List<Float?>>, palette: List<Color>, mod
 }
 
 /**
- * The live card: the current (or last) generation's rate and where each token's time went, from
- * the server's token and done events. The same four terms the desktop UI draws: compute, flash
- * wait, cache management and what nobody claims (off-CPU time: zram, preemption, frequency caps).
+ * 实时卡片：当前（或最近一次）生成的速率，以及每个 token 的时间去向，来自
+ * 服务端的 token 与 done 事件。与桌面端 UI 相同的四个术语：计算、flash
+ * 等待、缓存管理，以及无人认领的部分（CPU 外时间：zram、抢占、频率上限）。
  */
 @Composable
 private fun LiveCard() {
@@ -764,11 +764,11 @@ private fun LiveCard() {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             val model = engine.info?.model
             if (model == null) {
-                Text("No model loaded.", fontWeight = FontWeight.Medium)
+                Text("未加载模型。", fontWeight = FontWeight.Medium)
                 return@Column
             }
             if (t.step == 0 && t.avgTokensPerSecond <= 0) {
-                Text("${model.name}: nothing generated yet.", fontWeight = FontWeight.Medium)
+                Text("${model.name}：尚未生成任何内容。", fontWeight = FontWeight.Medium)
                 return@Column
             }
             val done = t.avgTokensPerSecond > 0
@@ -779,8 +779,8 @@ private fun LiveCard() {
             )
             if (!model.streaming) {
                 Text(
-                    "mmap baseline: the model is read through the OS page cache, so per-token flash I/O, the " +
-                        "compute split and cache hits are not observable in this mode.",
+                    "mmap 基线模式：模型通过操作系统页缓存读取，所以在该模式下无法观察到" +
+                        "逐 token 的 flash I/O、计算拆分和缓存命中。",
                     fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 return@Column
@@ -790,11 +790,11 @@ private fun LiveCard() {
             if (b.wallMs > 0.0) {
                 Text(String.format(loc, "%.0f ms/token  →  %.2f tok/s", b.wallMs, 1000.0 / b.wallMs), fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
             }
-            MeterRow("compute$suffix", b.computeMs, b.totalMs, MaterialTheme.colorScheme.primary)
-            MeterRow("flash wait$suffix", b.flashWaitMs, b.totalMs, MaterialTheme.colorScheme.tertiary)
-            MeterRow("cache mgmt$suffix", b.mgmtMs, b.totalMs, MaterialTheme.colorScheme.secondary)
-            MeterRow("unattributed$suffix", b.unattributedMs, b.totalMs, MaterialTheme.colorScheme.outline)
-            val hit = if (t.cacheHitPct >= 0) String.format(loc, "hit %.0f%%", t.cacheHitPct) else "hit —"
+            MeterRow("计算$suffix", b.computeMs, b.totalMs, MaterialTheme.colorScheme.primary)
+            MeterRow("flash 等待$suffix", b.flashWaitMs, b.totalMs, MaterialTheme.colorScheme.tertiary)
+            MeterRow("缓存管理$suffix", b.mgmtMs, b.totalMs, MaterialTheme.colorScheme.secondary)
+            MeterRow("未归因$suffix", b.unattributedMs, b.totalMs, MaterialTheme.colorScheme.outline)
+            val hit = if (t.cacheHitPct >= 0) String.format(loc, "命中 %.0f%%", t.cacheHitPct) else "命中 —"
             val diag = buildString {
                 if (b.cpuBusyPct >= 0.0) {
                     append(String.format(loc, "CPU %.0f%% busy", b.cpuBusyPct))

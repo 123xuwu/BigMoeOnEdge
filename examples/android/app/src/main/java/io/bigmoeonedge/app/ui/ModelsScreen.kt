@@ -49,7 +49,7 @@ private data class DeleteTarget(val title: String, val files: List<File>, val se
 
 /**
  * Models: one list of what is on the phone and what the catalog offers, merged by file
- * (docs/screens.md, "Models"; data/Library.kt), each row with its one state and primary action;
+ * (docs/screens.md, "模型"; data/Library.kt), each row with its one state and primary action;
  * then the ways to add to it: a Hugging Face repository, a direct link, a file on the phone. The
  * server lists every place a model can sit; the app does the transfers. Loading is one tap; with
  * auto-plan on, the engine measures the phone and chooses the run before it loads.
@@ -93,13 +93,13 @@ fun ModelsScreen(modifier: Modifier = Modifier, onOpenChat: () -> Unit = {}) {
     }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
-        importStatus = "Importing…"
+        importStatus = "正在导入…"
         importFrac = -1f
         scope.launch {
             SafImport.importGguf(context, uri) { copied, total ->
                 importFrac = if (total > 0) (copied.toFloat() / total).coerceIn(0f, 1f) else -1f
             }.onSuccess { importStatus = null; refreshKey++ }
-                .onFailure { importStatus = null; say(it.message ?: "import failed") }
+                .onFailure { importStatus = null; say(it.message ?: "导入失败") }
         }
     }
 
@@ -110,12 +110,12 @@ fun ModelsScreen(modifier: Modifier = Modifier, onOpenChat: () -> Unit = {}) {
         focusId = e.id
     }
     fun download(e: CatalogEntry) = scope.launch {
-        runCatching { startEntry(e) }.onFailure { say("${e.title}: ${it.message ?: "download failed to start"}") }
+        runCatching { startEntry(e) }.onFailure { say("${e.title}: ${it.message ?: "下载启动失败"}") }
     }
     // A model added from a repository or a link is a catalog entry like the others, downloaded in the
     // same breath; a download that does not start throws back to the card that asked.
     val added: suspend (String) -> Unit = { id ->
-        val e = Engine.state.value.models?.catalog?.firstOrNull { it.id == id } ?: error("the server does not list entry $id")
+        val e = Engine.state.value.models?.catalog?.firstOrNull { it.id == id } ?: error("服务器未列出条目 $id")
         startEntry(e)
     }
 
@@ -143,9 +143,9 @@ fun ModelsScreen(modifier: Modifier = Modifier, onOpenChat: () -> Unit = {}) {
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text("Models") },
+                title = { Text("模型") },
                 navigationIcon = { Box(Modifier.padding(start = 16.dp)) { BrandMark(wordmark = false) } },
-                actions = { TextButton(shape = Corner, onClick = { requestSharedStorageAccess(context); refreshKey++ }) { Text("Refresh") } },
+                actions = { TextButton(shape = Corner, onClick = { requestSharedStorageAccess(context); refreshKey++ }) { Text("刷新") } },
             )
         },
         snackbarHost = { SnackbarHost(snackbar) },
@@ -155,10 +155,10 @@ fun ModelsScreen(modifier: Modifier = Modifier, onOpenChat: () -> Unit = {}) {
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             if (!engine.serverUp) {
-                Text("The engine is not running.", color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+                Text("引擎未运行。", color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
             }
             if (engine.info?.state == "error") {
-                Text("Last load failed: ${engine.info?.error.orEmpty()}", color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+                Text("上次加载失败：${engine.info?.error.orEmpty()}", color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
             }
             if (engine.loading) {
                 // Seconds since the load began, so a long load reads as progress rather than as a hang.
@@ -173,7 +173,7 @@ fun ModelsScreen(modifier: Modifier = Modifier, onOpenChat: () -> Unit = {}) {
                 val planning = engine.info?.state == "planning"
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                    Text((if (planning) "Measuring this phone, then loading" else "Loading the model") + " · $elapsed s", fontSize = 13.sp)
+                    Text((if (planning) "正在测量本机，然后加载" else "正在加载模型") + " · $elapsed s", fontSize = 13.sp)
                 }
                 if (planning) PlanProgressCard(engine.planProgress)
             }
@@ -181,9 +181,9 @@ fun ModelsScreen(modifier: Modifier = Modifier, onOpenChat: () -> Unit = {}) {
                 // A model opened from outside the listed places has no row to carry these.
                 if (rows.none { it.state == RowState.LOADED }) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Loaded: ${m.name}", fontSize = 13.sp, modifier = Modifier.weight(1f))
-                        TextButton(shape = Corner, onClick = { scope.launch { Engine.unload() } }) { Text("Unload") }
-                        TextButton(shape = Corner, onClick = onOpenChat) { Text("Go to Chat") }
+                        Text("已加载：${m.name}", fontSize = 13.sp, modifier = Modifier.weight(1f))
+                        TextButton(shape = Corner, onClick = { scope.launch { Engine.unload() } }) { Text("卸载") }
+                        TextButton(shape = Corner, onClick = onOpenChat) { Text("前往聊天") }
                     }
                 }
             }
@@ -196,7 +196,7 @@ fun ModelsScreen(modifier: Modifier = Modifier, onOpenChat: () -> Unit = {}) {
                     modelsDir = models?.modelsDir.orEmpty(),
                     followed = r.entry != null && r.entry.id == focusId,
                     canLoad = canLoad,
-                    onLoad = { path -> scope.launch { Engine.load(path).onFailure { say(it.message ?: "load failed") } } },
+                    onLoad = { path -> scope.launch { Engine.load(path).onFailure { say(it.message ?: "加载失败") } } },
                     onUnload = { scope.launch { Engine.unload() } },
                     onOpenChat = onOpenChat,
                     onDownload = { download(it) },
@@ -206,64 +206,64 @@ fun ModelsScreen(modifier: Modifier = Modifier, onOpenChat: () -> Unit = {}) {
                             refreshKey++ // the kept .part turns the row into Resume
                         }
                     },
-                    onDeletePartial = { e -> scope.launch { Engine.deletePartial(e.id).onFailure { say(it.message ?: "could not delete the partial download") } } },
+                    onDeletePartial = { e -> scope.launch { Engine.deletePartial(e.id).onFailure { say(it.message ?: "无法删除部分下载") } } },
                     onDelete = r.local?.takeIf { m -> r.deleteName != null || ModelManager.canDelete(m.files.map(::File)) }?.let { m -> { askDelete(r.title, m, r.deleteName) } },
-                    onForget = { e -> scope.launch { Engine.removeAdded(e.id).onFailure { say(it.message ?: "could not forget it") } } },
+                    onForget = { e -> scope.launch { Engine.removeAdded(e.id).onFailure { say(it.message ?: "无法忘记该项") } } },
                 )
             }
 
             when {
-                models == null -> Text("Waiting for the engine…", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                models == null -> Text("正在等待引擎…", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 empty -> {
-                    Section("Get your first model")
+                    Section("获取你的第一个模型")
                     Steps(
                         listOf(
-                            "Find a model: search by name, or paste a repository.",
-                            "Check it fits here: the server reads its header and measures it against this phone, before any download.",
-                            "Download, then Load: Load appears on its row when it is done.",
+                            "查找模型：按名称搜索，或粘贴仓库地址。",
+                            "检查是否装得下：在任何下载之前，服务器会先读取其文件头并与本机内存比对。",
+                            "先下载，再加载：下载完成后该行会出现“加载”。",
                         ),
                     )
                     HuggingFaceSection(onAdded = added)
                     if (suggested.isNotEmpty()) {
-                        Text("Or start from a suggestion", fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                        Text("或从推荐开始", fontWeight = FontWeight.Medium, fontSize = 14.sp)
                         suggested.forEach { r ->
                             val e = r.entry ?: return@forEach
                             OutlinedButton(shape = Corner, onClick = { download(e) }, modifier = Modifier.fillMaxWidth()) {
-                                Text("Download ${e.title}" + (if (e.quant.isNotEmpty()) " (${e.quant})" else "") + ", ${gbLabel(e.bytes)}", maxLines = 2)
+                                Text("下载 ${e.title}" + (if (e.quant.isNotEmpty()) " (${e.quant})" else "") + ", ${gbLabel(e.bytes)}", maxLines = 2)
                             }
                         }
                     }
-                    Text("Or a direct link to a gguf", fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                    Text("或使用 gguf 的直接链接", fontWeight = FontWeight.Medium, fontSize = 14.sp)
                     LinkImport(onAdded = { e -> startEntry(e) })
-                    OutlinedButton(shape = Corner, onClick = { picker.launch(arrayOf("*/*")) }, modifier = Modifier.fillMaxWidth()) { Text("Or pick a gguf on the phone") }
+                    OutlinedButton(shape = Corner, onClick = { picker.launch(arrayOf("*/*")) }, modifier = Modifier.fillMaxWidth()) { Text("或从手机中选择一个 gguf") }
                 }
                 else -> {
-                    Section("Your models")
+                    Section("你的模型")
                     yours.forEach { rowView(it) }
                     strays.forEach { (name, p) -> DownloadProgress(p, onCancel = { ModelDownloader.cancel(context, name) }) }
                     if (companions.isNotEmpty()) {
-                        Hint("${companions.size} companion ${if (companions.size == 1) "file" else "files"}: not models to load, by their headers.")
+                        Hint("${companions.size} 个附属文件：按文件头判断，它们不是可加载的模型。")
                         companions.forEach { m ->
                             CompanionRow(m, onDelete = m.takeIf { serverDeleteName(it, models.modelsDir) != null || ModelManager.canDelete(it.files.map(::File)) }
                                 ?.let { { askDelete(m.name, m, serverDeleteName(m, models.modelsDir)) } })
                         }
                     }
                     if (suggested.isNotEmpty()) {
-                        Section("Suggested")
+                        Section("推荐")
                         suggested.forEach { rowView(it) }
                     }
                     HorizontalDivider()
-                    Section("Get another model")
+                    Section("获取其他模型")
                     HuggingFaceSection(onAdded = added)
                     HorizontalDivider()
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Any other model", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
-                        TextButton(shape = Corner, onClick = { otherOpen = !otherOpen }) { Text(if (otherOpen) "Hide" else "Show") }
+                        Text("任意其他模型", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
+                        TextButton(shape = Corner, onClick = { otherOpen = !otherOpen }) { Text(if (otherOpen) "隐藏" else "显示") }
                     }
                     if (otherOpen) {
-                        Hint("A direct link to a gguf, or a file already on the phone.")
+                        Hint("gguf 的直接链接，或手机上已有的文件。")
                         LinkImport(onAdded = { e -> startEntry(e) })
-                        OutlinedButton(shape = Corner, onClick = { picker.launch(arrayOf("*/*")) }, modifier = Modifier.fillMaxWidth()) { Text("Pick a file") }
+                        OutlinedButton(shape = Corner, onClick = { picker.launch(arrayOf("*/*")) }, modifier = Modifier.fillMaxWidth()) { Text("选择文件") }
                     }
                 }
             }
@@ -275,15 +275,15 @@ fun ModelsScreen(modifier: Modifier = Modifier, onOpenChat: () -> Unit = {}) {
 
             models?.let { m ->
                 Text(
-                    (if (whereOpen) "v" else ">") + "  Where models live",
+                    (if (whereOpen) "v" else ">") + "  模型存放位置",
                     fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.fillMaxWidth().clickable { whereOpen = !whereOpen }.padding(vertical = 4.dp),
                 )
                 if (whereOpen) {
-                    Hint("Downloads and imports land in this app's own storage, where streamed reads run fastest:")
+                    Hint("下载与导入都保存在应用自己的存储中，这里的流式读取最快：")
                     Text(m.modelsDir, fontFamily = CodeFont, fontSize = 11.sp)
                     if (m.scanDirs.isNotEmpty()) {
-                        Hint("Also listed, and loaded in place:")
+                        Hint("同时列出并就地加载：")
                         m.scanDirs.forEach { Text(it, fontFamily = CodeFont, fontSize = 11.sp) }
                     }
                     Hint(ModelManager.pushHint())
@@ -297,10 +297,10 @@ fun ModelsScreen(modifier: Modifier = Modifier, onOpenChat: () -> Unit = {}) {
         val isLoaded = t.files.any { it.absolutePath == loadedPath }
         AlertDialog(
             onDismissRequest = { deleteTarget = null },
-            title = { Text("Delete ${t.title}?") },
+            title = { Text("删除 ${t.title}？") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (isLoaded) Text("This model is loaded. Unload it first.", color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+                    if (isLoaded) Text("该模型已加载，请先卸载。", color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
                     t.files.forEach { f -> Text("${f.name}  ·  ${gbLabel(f.length())}", fontSize = 12.sp) }
                 }
             },
@@ -311,19 +311,19 @@ fun ModelsScreen(modifier: Modifier = Modifier, onOpenChat: () -> Unit = {}) {
                         scope.launch {
                             val name = t.serverName
                             if (name != null) {
-                                Engine.deleteLocal(name).onFailure { say(it.message ?: "could not delete it") }
+                                Engine.deleteLocal(name).onFailure { say(it.message ?: "无法删除") }
                             } else {
                                 val kept = withContext(Dispatchers.IO) { t.files.filter { it.exists() && !it.delete() } }
-                                if (kept.isNotEmpty()) say("Could not delete ${kept.joinToString { it.name }}")
+                                if (kept.isNotEmpty()) say("无法删除 ${kept.joinToString { it.name }}")
                             }
                             deleteTarget = null
                             refreshKey++
                         }
                     },
                     enabled = !isLoaded,
-                ) { Text("Delete") }
+                ) { Text("删除") }
             },
-            dismissButton = { TextButton(shape = Corner, onClick = { deleteTarget = null }) { Text("Keep") } },
+            dismissButton = { TextButton(shape = Corner, onClick = { deleteTarget = null }) { Text("保留") } },
         )
     }
 }
@@ -402,13 +402,13 @@ private fun ModelRow(
                 e?.quant?.ifEmpty { null },
                 gbLabel(size),
                 m?.arch?.ifEmpty { null },
-                m?.takeIf { it.complete }?.let { if (it.streamable) "streams" else "not a MoE this build streams" },
-                m?.takeIf { r.state == RowState.INCOMPLETE || r.state == RowState.PARTIAL }?.let { "${it.files.size} of ${it.shards} shards here" }
-                    ?: m?.shards?.takeIf { it > 1 }?.let { "$it shards" },
+                m?.takeIf { it.complete }?.let { if (it.streamable) "可流式" else "不是本构建可流式加载的 MoE" },
+                m?.takeIf { r.state == RowState.INCOMPLETE || r.state == RowState.PARTIAL }?.let { "此处 ${it.files.size} / ${it.shards} 个分片" }
+                    ?: m?.shards?.takeIf { it > 1 }?.let { "$it 个分片" },
                 m?.name?.takeIf { it != r.title },
-                m?.folder?.ifEmpty { null }?.let { "in $it" },
-                m?.dir?.takeIf { it.isNotEmpty() && it != modelsDir }?.let { "in $it" },
-                e?.added?.takeIf { it }?.let { "added" },
+                m?.folder?.ifEmpty { null }?.let { "位于 $it" },
+                m?.dir?.takeIf { it.isNotEmpty() && it != modelsDir }?.let { "位于 $it" },
+                e?.added?.takeIf { it }?.let { "已添加" },
             ).joinToString(" · "),
             fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -419,28 +419,28 @@ private fun ModelRow(
                 LinearProgressIndicator(progress = { (e.received.toFloat() / e.bytes).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
             }
         }
-        if (failure != null) Text("Download failed: $failure", fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+        if (failure != null) Text("下载失败：$failure", fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             when {
                 r.state == RowState.LOADED && m != null -> {
-                    OutlinedButton(shape = Corner, onClick = { onLoad(m.path) }, enabled = canLoad) { Text("Reload") }
-                    OutlinedButton(shape = Corner, onClick = onUnload) { Text("Unload") }
-                    Button(shape = Corner, onClick = onOpenChat) { Text("Go to Chat") }
+                    OutlinedButton(shape = Corner, onClick = { onLoad(m.path) }, enabled = canLoad) { Text("重新加载") }
+                    OutlinedButton(shape = Corner, onClick = onUnload) { Text("卸载") }
+                    Button(shape = Corner, onClick = onOpenChat) { Text("前往聊天") }
                 }
-                r.state == RowState.ON_DEVICE && m != null -> Button(shape = Corner, onClick = { onLoad(m.path) }, enabled = canLoad) { Text("Load") }
-                r.state == RowState.DOWNLOADING && e != null -> OutlinedButton(shape = Corner, onClick = { onCancel(e) }) { Text("Cancel") }
+                r.state == RowState.ON_DEVICE && m != null -> Button(shape = Corner, onClick = { onLoad(m.path) }, enabled = canLoad) { Text("加载") }
+                r.state == RowState.DOWNLOADING && e != null -> OutlinedButton(shape = Corner, onClick = { onCancel(e) }) { Text("取消") }
                 e != null && r.state in setOf(RowState.AVAILABLE, RowState.PARTIAL, RowState.INCOMPLETE) -> {
                     Button(shape = Corner, onClick = { onDownload(e) }) {
-                        Text(if (e.partial) resumeLabel(e.received, e.bytes) else "Download", maxLines = 1, softWrap = false)
+                        Text(if (e.partial) resumeLabel(e.received, e.bytes) else "下载", maxLines = 1, softWrap = false)
                     }
-                    if (e.partial) TextButton(shape = Corner, onClick = { onDeletePartial(e) }) { Text("Delete partial") }
+                    if (e.partial) TextButton(shape = Corner, onClick = { onDeletePartial(e) }) { Text("删除部分文件") }
                 }
             }
             if (onDelete != null && r.state != RowState.LOADED && r.state != RowState.DOWNLOADING) {
-                TextButton(shape = Corner, onClick = onDelete) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+                TextButton(shape = Corner, onClick = onDelete) { Text("删除", color = MaterialTheme.colorScheme.error) }
             }
             if (e != null && e.added && r.state != RowState.DOWNLOADING) {
-                TextButton(shape = Corner, onClick = { onForget(e) }) { Text("Forget") }
+                TextButton(shape = Corner, onClick = { onForget(e) }) { Text("忘记") }
             }
         }
     }
@@ -452,9 +452,9 @@ private fun CompanionRow(m: LocalModel, onDelete: (() -> Unit)?) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(m.name, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Hint(listOfNotNull(FileRole.label(m.role), gbLabel(m.bytes), m.arch.ifEmpty { null }, m.folder.ifEmpty { null }?.let { "in $it" }).joinToString(" · "))
+            Hint(listOfNotNull(FileRole.label(m.role), gbLabel(m.bytes), m.arch.ifEmpty { null }, m.folder.ifEmpty { null }?.let { "位于 $it" }).joinToString(" · "))
         }
-        if (onDelete != null) TextButton(shape = Corner, onClick = onDelete) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+        if (onDelete != null) TextButton(shape = Corner, onClick = onDelete) { Text("删除", color = MaterialTheme.colorScheme.error) }
     }
 }
 
@@ -474,8 +474,8 @@ private fun LinkImport(onAdded: suspend (CatalogEntry) -> Unit) {
         busy = true
         error = ""
         Engine.addUrl(url.trim()).fold(
-            onSuccess = { e -> runCatching { onAdded(e) }.onSuccess { url = "" }.onFailure { error = it.message ?: "download failed to start" } },
-            onFailure = { error = it.message ?: "the link was refused" },
+            onSuccess = { e -> runCatching { onAdded(e) }.onSuccess { url = "" }.onFailure { error = it.message ?: "下载启动失败" } },
+            onFailure = { error = it.message ?: "链接被拒绝" },
         )
         busy = false
     }
@@ -486,9 +486,9 @@ private fun LinkImport(onAdded: suspend (CatalogEntry) -> Unit) {
             singleLine = true, modifier = Modifier.fillMaxWidth(),
         )
         Button(shape = Corner, onClick = { add() }, enabled = url.isNotBlank() && !busy, modifier = Modifier.fillMaxWidth()) {
-            Text(if (busy) "Checking the link…" else "Download")
+            Text(if (busy) "正在检查链接…" else "下载")
         }
-        Hint("A link to one file, or to any shard of a split set (the other shards are fetched beside it). It is added to Your models and downloads like any other.")
+        Hint("单个文件的链接，或分片集任意一个分片的链接（其余分片会自动一并获取）。它会被加入“你的模型”，并像其他条目一样下载。")
         if (error.isNotEmpty()) Text(error, fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
     }
 }
@@ -499,16 +499,16 @@ private fun DownloadProgress(p: ModelDownloader.Progress, onCancel: (() -> Unit)
     if (showName) Text(p.name, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     Text(
         when {
-            p.state == ModelDownloader.State.PAUSED -> p.reason ?: "paused"
+            p.state == ModelDownloader.State.PAUSED -> p.reason ?: "已暂停"
             pct != null -> String.format(Locale.US, "%d%% (%d / %d MiB)", (pct * 100).toInt(), p.downloadedBytes shr 20, p.totalBytes shr 20)
             p.downloadedBytes > 0 -> String.format(Locale.US, "%d MiB", p.downloadedBytes shr 20)
-            else -> "Starting…"
+            else -> "正在开始…"
         },
         fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
     )
     if (pct != null) LinearProgressIndicator(progress = { pct }, modifier = Modifier.fillMaxWidth())
     else LinearProgressIndicator(Modifier.fillMaxWidth())
-    onCancel?.let { TextButton(shape = Corner, onClick = it) { Text("Cancel") } }
+    onCancel?.let { TextButton(shape = Corner, onClick = it) { Text("取消") } }
 }
 
 /**
