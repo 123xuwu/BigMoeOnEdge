@@ -1,7 +1,11 @@
 package io.bigmoeonedge.app.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -28,6 +32,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.bigmoeonedge.app.chat.Chat
 import io.bigmoeonedge.app.chat.ConversationSummary
 import io.bigmoeonedge.app.chat.ItemReducer
+import io.bigmoeonedge.app.data.Breakdown
+import io.bigmoeonedge.app.data.Telemetry
 import io.bigmoeonedge.app.data.breakdown
 import io.bigmoeonedge.app.engine.ApiException
 import io.bigmoeonedge.app.engine.Decide
@@ -414,11 +420,95 @@ private fun LiveLine() {
     if (t.cacheHitPct >= 0) parts += String.format(loc, "缓存命中 %.0f%%", t.cacheHitPct)
     engine.cpuTempC?.let { parts += String.format(loc, "%.0f°C", it) }
     if (engine.generating && t.steps > 0) parts += "${t.step}/${t.steps}"
+
+    // The row stays one line where it fits, wraps to three where it does not, and opens everything
+    // on a tap: a phone is narrow, and a rate cut off at "计算…" tells nobody anything.
+    var open by remember { mutableStateOf(false) }
     Text(
         parts.joinToString(" · "),
         style = FigureStyle, fontSize = 12.sp,
         color = tokens.muted,
-        modifier = Modifier.padding(horizontal = 16.dp).padding(top = 6.dp),
-        maxLines = 1, overflow = TextOverflow.Ellipsis,
+        maxLines = 2, overflow = TextOverflow.Ellipsis,
+        modifier = Modifier
+            .padding(horizontal = 16.dp).padding(top = 6.dp)
+            .clickable { open = true },
     )
+
+    if (open) {
+        AlertDialog(
+            onDismissRequest = { open = false },
+            title = { Text(if (b.isAverage) "本轮平均速率" else "当前生成速率") },
+            text = {
+                Column(
+                    Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    SelectionContainer {
+                        Text(detailLines(t, b, loc).joinToString("\n"), fontSize = 12.sp, fontFamily = CodeFont)
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { open = false }) { Text("关闭") } },
+        )
+    }
+}
+
+/**
+ * Every figure one generation reports, grouped and labelled — the same numbers the 指标 page draws
+ * as cards, here as text, because that page is a whole screen away from the answer being read.
+ * A field the server left unmeasured (-1) is omitted rather than shown as a negative percentage.
+ */
+private fun detailLines(t: Telemetry, b: Breakdown, loc: Locale): List<String> {
+    val out = mutableListOf<String>()
+    fun line(label: String, value: String) = out.add(String.format(loc, "%-14s %s", label, value))
+
+    out.add("速率")
+    line("解码", String.format(loc, "%.2f tok/s", t.tokensPerSecond))
+    if (t.avgTokensPerSecond > 0) line("本轮平均", String.format(loc, "%.2f tok/s", t.avgTokensPerSecond))
+    if (t.effectiveTokensPerSecond > 0) line("实际体验", String.format(loc, "%.2f tok/s", t.effectiveTokensPerSecond))
+    if (t.prefillTps > 0) line("预填充", String.format(loc, "%.1f tok/s", t.prefillTps))
+    if (t.ttftS > 0) line("首 token", String.format(loc, "%.2f s", t.ttftS))
+
+    if (b.totalMs > 0) {
+        out.add("")
+        out.add("每个 token 的时间")
+        line("总耗时", String.format(loc, "%.1f ms", b.totalMs))
+        line("计算", String.format(loc, "%.1f ms  %.0f%%", b.computeMs, 100.0 * b.computeMs / b.totalMs))
+        line("闪存等待", String.format(loc, "%.1f ms  %.0f%%", b.flashWaitMs, 100.0 * b.flashWaitMs / b.totalMs))
+        line("缓存管理", String.format(loc, "%.1f ms  %.0f%%", b.mgmtMs, 100.0 * b.mgmtMs / b.totalMs))
+        line("未归因", String.format(loc, "%.1f ms  %.0f%%", b.unattributedMs, 100.0 * b.unattributedMs / b.totalMs))
+    }
+
+    if (b.cpuBusyPct >= 0 || b.faultsPerToken >= 0) {
+        out.add("")
+        out.add("系统")
+        if (b.cpuBusyPct >= 0) line("CPU 占用", String.format(loc, "%.0f%%", b.cpuBusyPct))
+        if (b.faultsPerToken >= 0) line("缺页/token", String.format(loc, "%.0f 次", b.faultsPerToken))
+    }
+
+    if (t.cacheHitPct >= 0 || t.cacheResidentMib >= 0) {
+        out.add("")
+        out.add("专家缓存")
+        if (t.cacheHitPct >= 0) line("命中率", String.format(loc, "%.0f%%", t.cacheHitPct))
+        if (t.cacheResidentMib >= 0 && t.cacheBudgetMib > 0) {
+            line("常驻", String.format(loc, "%.0f / %.0f MiB", t.cacheResidentMib, t.cacheBudgetMib))
+        }
+        if (t.readMib >= 0) line("闪存读取", String.format(loc, "%.0f MiB", t.readMib))
+    }
+
+    if (t.mtpDrafted > 0) {
+        out.add("")
+        out.add("投机解码")
+        line("起草", "${t.mtpDrafted} 个")
+        line("采纳", String.format(loc, "%d 个  %.0f%%", t.mtpAccepted, t.mtpAcceptancePct))
+        if (t.mtpTokensPerDecode > 0) line("每次验证", String.format(loc, "%.2f 个 token", t.mtpTokensPerDecode))
+        if (t.mtpDraftSPerTok > 0) line("起草耗时", String.format(loc, "%.1f ms/token", 1000.0 * t.mtpDraftSPerTok))
+        if (t.loopOverheadSPerTok > 0) line("解码间隙", String.format(loc, "%.1f ms/token", 1000.0 * t.loopOverheadSPerTok))
+    }
+
+    if (t.steps > 0) {
+        out.add("")
+        line("进度", "${t.step} / ${t.steps}")
+    }
+    return out
 }
