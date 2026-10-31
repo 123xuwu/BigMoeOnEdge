@@ -27,6 +27,13 @@ data class ChatUi(
     val opening: Boolean = false,
     /** A send on its way to the server (the `202` not back yet). */
     val sending: Boolean = false,
+    /**
+     * Turns already waiting behind the running one when this request was sent: the place this
+     * request took in the line, read before it went out. A queued turn gets no answer until its
+     * turn comes, so the server cannot tell it this afterwards; a request sent with no turn
+     * running starts at once and this stays 0.
+     */
+    val queuedBehind: Int = 0,
     val error: String? = null,
     val errorCode: String = "",
     /** The server answered the conversation routes with 404: a build without them. */
@@ -78,7 +85,9 @@ object Chat {
                 s.copy(conversations = list, open = if (s.open?.id == id && row != null) s.open!!.copy(title = row.title, state = row.state, updated = row.updated) else s.open)
             }
             "item", "delta" -> _state.update { s ->
-                s.copy(items = ItemReducer.apply(s.open?.id, s.items, event, data))
+                // Content reaching this conversation is this request's turn starting: whatever
+                // place it held in the line is gone, so the notice stops instead of counting down.
+                s.copy(queuedBehind = 0, items = ItemReducer.apply(s.open?.id, s.items, event, data))
             }
         }
     }
@@ -110,11 +119,11 @@ object Chat {
     }
 
     fun newConversation() {
-        _state.update { it.copy(open = null, items = emptyList(), error = null, errorCode = "") }
+        _state.update { it.copy(open = null, items = emptyList(), queuedBehind = 0, error = null, errorCode = "") }
     }
 
     fun open(id: String) {
-        _state.update { it.copy(opening = true, error = null, errorCode = "") }
+        _state.update { it.copy(opening = true, queuedBehind = 0, error = null, errorCode = "") }
         scope.launch { reopen(id) }
     }
 
@@ -173,7 +182,11 @@ object Chat {
         val prompt = text.trim()
         val s = _state.value
         if (prompt.isEmpty() || s.sending || s.running || !canSend()) return
-        _state.update { it.copy(sending = true, error = null, errorCode = "") }
+        // The place this request takes is the line as it stands now: the turn running (if any)
+        // plus everyone already waiting. Read before the send, since afterwards the request is
+        // inside the queue and hears nothing until its turn comes.
+        val behind = placeInLine(Engine.state.value.generating, Engine.state.value.info?.waitingTurns ?: 0)
+        _state.update { it.copy(sending = true, queuedBehind = behind, error = null, errorCode = "") }
         scope.launch {
             try {
                 val api = Engine.api()
@@ -216,6 +229,24 @@ object Chat {
     fun clearError() = _state.update { it.copy(error = null, errorCode = "") }
 
     private fun fail(t: Throwable) {
-        _state.update { it.copy(error = t.message ?: t.javaClass.simpleName, errorCode = (t as? ApiException)?.code.orEmpty()) }
+        _state.update {
+            it.copy(
+                queuedBehind = 0,
+                error = t.message ?: t.javaClass.simpleName,
+                errorCode = (t as? ApiException)?.code.orEmpty(),
+            )
+        }
     }
 }
+
+/**
+ * How many turns stand between a request sent now and its own: the one running (if any), then
+ * everyone already waiting behind it (turn_queue.h, first come first served). Zero means the
+ * request starts at once, which is the usual case.
+ *
+ * Pure, so the arithmetic a phone shows ("前面还有 N 个") is checked without a server: the
+ * queue's own count excludes the turn running, and a request that arrives while nothing runs
+ * waits for nobody.
+ */
+internal fun placeInLine(generating: Boolean, waiting: Int): Int =
+    (if (generating) 1 else 0) + (if (waiting > 0) waiting else 0)

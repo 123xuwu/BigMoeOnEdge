@@ -407,15 +407,32 @@ private fun Composer() {
  * 服务端一次只生成一个回答（turn_queue.h）：别的会话或后台任务占着时，这一条发出去就会排队，
  * 而不是开始。排在队里的请求自己看不到这件事——它占着一个 worker 线程，等轮到自己才有回应——
  * 所以只有这里能提前告诉用户「在等」。
+ *
+ * 两种等待要分开说：自己这条还没轮到（`Chat.queuedBehind`，发送前读到的位置），和模型正在给
+ * 别处写答案（`waiting_turns`，每次有人进出队都会推一个 state 事件）。前者要说明「你前面还有
+ * 几个」，后者只需说明「在忙别的」。
  */
 @Composable
 private fun QueueNotice() {
     val engine by Engine.state.collectAsStateWithLifecycle()
+    val chat by Chat.state.collectAsStateWithLifecycle()
     val info = engine.info ?: return
-    if (!info.generating) return
-    val ahead = info.waitingTurns
+    // Sent, not back yet, and something was already running: this request is the one in line.
+    // The count came from the moment of the send, so it stays right while the queue moves, and
+    // the first content of this conversation clears it: that is its turn starting.
+    val mine = chat.queuedBehind
+    val waiting = info.waitingTurns
+    // Waiting turns are a reason to say something on their own: the server now publishes the count
+    // as a place is taken and as it is given back, so `waiting > 0` can be true for a moment while
+    // nothing generates (a waiter left just as the running turn ended). Hiding the notice then
+    // would blank the message under the composer mid-change.
+    if (!info.generating && mine == 0 && waiting == 0) return
     Text(
-        if (ahead > 0) "模型正在回答，前面还有 $ahead 个请求在排队" else "模型正在回答别的请求",
+        when {
+            mine > 0 -> if (mine > 1) "你的请求在排队，前面还有 ${mine - 1} 个" else "你的请求在排队，轮到下一个就回答"
+            waiting > 0 -> "模型正在回答，前面还有 $waiting 个请求在排队"
+            else -> "模型正在回答别的请求"
+        },
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 4.dp),

@@ -7,6 +7,7 @@ import io.bigmoeonedge.app.chat.ConversationSummary
 import io.bigmoeonedge.app.chat.ItemReducer
 import io.bigmoeonedge.app.chat.LocalConversations
 import io.bigmoeonedge.app.chat.Migration
+import io.bigmoeonedge.app.chat.placeInLine
 import io.bigmoeonedge.app.chat.timeMs
 import io.bigmoeonedge.app.data.Conversation
 import io.bigmoeonedge.app.engine.ChatMessage
@@ -221,5 +222,29 @@ class ChatTest {
         assertEquals(1_000_000_000_000L, timeMs("2001-09-09T01:46:40Z"))
         assertEquals(0L, timeMs(null))
         assertEquals(0L, timeMs("soon"))
+    }
+
+    // ── the place a send takes in the line (turn_queue.h) ──
+    @Test
+    fun aSendStartsAtOnceWhenNothingRuns() {
+        // The usual case: nothing is generating, nobody waits, so nothing is ahead of it.
+        assertEquals(0, placeInLine(generating = false, waiting = 0))
+    }
+
+    @Test
+    fun aSendWaitsForTheRunningTurnAndTheOnesBeforeIt() {
+        // The queue's own count leaves out the turn running, which is still ahead of this send.
+        assertEquals(1, placeInLine(generating = true, waiting = 0))
+        assertEquals(3, placeInLine(generating = true, waiting = 2))
+        // Waiters with nothing running still stand in front: a request that arrives first runs first.
+        assertEquals(2, placeInLine(generating = false, waiting = 2))
+    }
+
+    @Test
+    fun aMissingCountNeverShortensTheLine() {
+        // `waiting_turns` comes off the wire, so the arithmetic must not turn a missing or negative
+        // figure into "nobody is ahead of me": the running turn still is.
+        assertEquals(1, placeInLine(generating = true, waiting = -1))
+        assertEquals(0, placeInLine(generating = false, waiting = -1))
     }
 }
