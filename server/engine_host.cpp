@@ -272,7 +272,11 @@ json EngineHost::info() const {
                 {"state", planning_.load() && state_ == State::Empty ? "planning" : state_name((int) state_)},
                 {"error", error_},
                 {"model", model_},
-                {"generating", generating_.load()}};
+                {"generating", generating_.load()},
+                // How many turns are waiting for the one that is running (turn_queue.h). A UI
+                // that shows a turn still queued as "no answer yet" reads as broken; with this
+                // it can say so instead. Zero whenever nothing waits, which is the common case.
+                {"waiting_turns", turns_.waiting()}};
 }
 
 void EngineHost::note_context_full(int n_ctx) {
