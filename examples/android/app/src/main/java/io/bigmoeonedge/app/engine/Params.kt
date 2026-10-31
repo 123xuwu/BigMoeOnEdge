@@ -66,7 +66,19 @@ data class ParamSpec(
     fun helpPartsText(): Pair<String, String> = helpPartsOf(helpText)
 
     /** A choice's label as this app shows it ([value] is what the flag accepts). */
-    fun choiceText(value: String): String = ParamsZh.choice(value, choices.firstOrNull { it.first == value }?.second ?: value)
+    /**
+     * A choice's label as this app shows it, or [value] itself when this row does not offer it.
+     *
+     * The lookup is bounded by this row's own `choices`, and that bound is what keeps it honest: a
+     * value like `auto` or `off` means different things on different knobs (a cache size, a prefix
+     * cache, a device choice), so a table keyed by the value alone would read one knob's wording on
+     * another. A row that does not offer the value gets it back unchanged, which is also what a row
+     * whose choices the server did not send does.
+     */
+    fun choiceText(value: String): String {
+        val offered = choices.firstOrNull { it.first == value }?.second ?: return value
+        return ParamsZh.choice(value, offered)
+    }
 
     /** The group's section title as this app shows it (keyed by the stable group name). */
     val groupLabelText: String get() = ParamsZh.group(group, groupLabel.ifEmpty { group })

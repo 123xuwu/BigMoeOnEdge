@@ -2,6 +2,7 @@ package io.bigmoeonedge.app
 
 import io.bigmoeonedge.app.data.ConfigGlossary
 import io.bigmoeonedge.app.data.Csv
+import io.bigmoeonedge.app.data.ParamsZh
 import io.bigmoeonedge.app.data.Telemetry
 import io.bigmoeonedge.app.data.applyDone
 import io.bigmoeonedge.app.data.applyToken
@@ -95,12 +96,26 @@ class ServerFactsTest {
         )
         val rows = g.rows(info)
         assertEquals(listOf("engine", "model", "streaming", "cache_mb", "overlap", "drop_cold_frac", "spec", "newer_knob"), rows.map { it.first })
-        assertEquals(Triple("overlap", "Overlap", "on"), rows[4])
-        assertEquals(Triple("cache_mb", "Expert cache", "2048 MiB"), rows[3])
+        // Both columns are the row's as the app shows it: the label is the Chinese ParamsZh carries
+        // (labelText), and a switch's value is the same choice table's on/off word, which
+        // `ConfigGlossary.value` already applies. The raw fields the server sent stay English, and
+        // are checked below.
+        assertEquals(
+            Triple("overlap", ParamsZh.label("overlap", "Overlap"), ParamsZh.choice("on", "on")),
+            rows[4],
+        )
+        assertEquals(Triple("cache_mb", ParamsZh.label("cache-mb", "Expert cache"), "2048 MiB"), rows[3])
         // A key the table does not know is still shown, under its own name.
         assertEquals(Triple("newer_knob", "newer_knob", "7"), rows.last())
+        // The raw fields ParamsZh keys on are never rewritten: `label` is what a lookup reads and
+        // what the server sent, so translating it in place would break the lookup itself.
+        assertEquals("Overlap", g.spec("overlap")!!.label)
+        assertEquals("Expert cache", g.spec("cache_mb")!!.label)
         // The identity names what changes the reply and is off its default, and nothing else.
-        assertEquals("q.gguf · streamed · Drop cold experts 0.25", Csv(emptyList(), emptyList(), emptyList(), info).label(g))
+        // The name comes from this table's own row, so the assertion holds whether or not the
+        // Chinese table happens to carry this key: `labelText` falls back to the server's label.
+        val dropCold = g.spec("drop_cold_frac")!!.labelText
+        assertEquals("q.gguf · streamed · $dropCold 0.25", Csv(emptyList(), emptyList(), emptyList(), info).label(g))
         // A file recorded before the app wrote its own preamble names the same fact moe_stream.
         val older = linkedMapOf("model" to "q.gguf", "moe_stream" to "0")
         assertEquals("q.gguf · mmap baseline", Csv(emptyList(), emptyList(), emptyList(), older).label(g))
