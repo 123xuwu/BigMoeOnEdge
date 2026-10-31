@@ -397,17 +397,17 @@ private fun ParamRow(
     Column(mod, verticalArrangement = Arrangement.spacedBy(2.dp)) {
         when {
             readOnly -> {
-                Text(spec.label, fontSize = 15.sp)
+                Text(spec.labelText, fontSize = 15.sp)
                 Text(paramValueText(value).substringAfterLast('/').ifEmpty { "无" }, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            spec.type == "bool" -> SwitchRow(spec.label, null, value == true) { onSet(it) }
+            spec.type == "bool" -> SwitchRow(spec.labelText, null, value == true) { onSet(it) }
             spec.type == "choice" -> {
                 val idx = spec.choices.indexOfFirst { it.first == value?.toString() }.coerceAtLeast(0)
-                LabeledDropdown(spec.label, spec.choices.map { it.second }, idx) { i -> onSet(spec.choices[i].first) }
+                LabeledDropdown(spec.labelText, spec.choices.map { spec.choiceText(it.first) }, idx) { i -> onSet(spec.choices[i].first) }
             }
             else -> NumberOrTextField(spec, value, focus, onSet)
         }
-        val (lead, rest) = spec.helpParts()
+        val (lead, rest) = spec.helpPartsText()
         var more by remember(spec.key) { mutableStateOf(false) }
         if (lead.isNotEmpty()) Hint(lead)
         val extra = listOfNotNull(
@@ -468,7 +468,7 @@ private fun NumberOrTextField(spec: ParamSpec, value: Any?, focus: FocusRequeste
     OutlinedTextField(
         value = text,
         onValueChange = { text = it; error = null },
-        label = { Text(spec.label) },
+        label = { Text(spec.labelText) },
         suffix = spec.unit?.let { { Text(it, fontSize = 12.sp) } },
         isError = error != null,
         supportingText = hint?.let { { Text(it) } },

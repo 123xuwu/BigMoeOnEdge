@@ -586,7 +586,7 @@ private fun GlossaryView(modifier: Modifier) {
             }
         }
         items(glossary.params) { p ->
-            GlossaryEntry(ConfigGlossary.preambleKey(p.key), p.label + if (p.lossy) "（会改变回复）" else "", p.help)
+            GlossaryEntry(ConfigGlossary.preambleKey(p.key), p.labelText + if (p.lossy) "（会改变回复）" else "", p.helpText)
         }
     }
 }

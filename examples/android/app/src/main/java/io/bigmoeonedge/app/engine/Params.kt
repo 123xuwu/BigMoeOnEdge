@@ -1,5 +1,6 @@
 package io.bigmoeonedge.app.engine
 
+import io.bigmoeonedge.app.data.ParamsZh
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -49,6 +50,30 @@ data class ParamSpec(
         return special.firstOrNull { it.first == text }?.second
     }
 
+    // The engine's table is English, and so is everything it prints (`--help`, the CLI, logs):
+    // translating it there would translate those too. The app therefore keeps `label`, `help`,
+    // `groupLabel`, `groupHelp`, `choices` and `special` exactly as the server sent them — they are
+    // what a key is looked up by — and renders them through ParamsZh here, at the edge. The `*Text`
+    // members below are what the screens show; the raw ones stay for tests and for lookups.
+
+    /** The row's label as this app shows it. */
+    val labelText: String get() = ParamsZh.label(key, label)
+
+    /** The row's help as this app shows it. */
+    val helpText: String get() = ParamsZh.help(key, help)
+
+    /** The row's help as this app shows it, split the way the screens show it. */
+    fun helpPartsText(): Pair<String, String> = helpPartsOf(helpText)
+
+    /** A choice's label as this app shows it ([value] is what the flag accepts). */
+    fun choiceText(value: String): String = ParamsZh.choice(value, choices.firstOrNull { it.first == value }?.second ?: value)
+
+    /** The group's section title as this app shows it (keyed by the stable group name). */
+    val groupLabelText: String get() = ParamsZh.group(group, groupLabel.ifEmpty { group })
+
+    /** The group's one line of help as this app shows it. */
+    val groupHelpText: String get() = ParamsZh.groupHelp(group, groupHelp)
+
     /** The typical range in words, "usually 2 to 8" (the unit is the field's suffix), or null for a row with none. */
     fun typicalText(): String? = typical?.let { r ->
         val lo = paramValueText(r.start)
@@ -57,7 +82,10 @@ data class ParamSpec(
     }
 
     /** The help's first sentence, always shown, and the rest, shown on demand. Same rule as the web UI. */
-    fun helpParts(): Pair<String, String> {
+    fun helpParts(): Pair<String, String> = helpPartsOf(help)
+
+    /** [helpParts] for any text, so a translated help is split by the same rule. */
+    private fun helpPartsOf(help: String): Pair<String, String> {
         val text = help.trim()
         var depth = 0
         for (i in text.indices) {

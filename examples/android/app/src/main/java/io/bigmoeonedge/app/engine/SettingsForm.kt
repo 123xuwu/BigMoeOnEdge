@@ -31,8 +31,8 @@ fun settingsCards(params: List<ParamSpec>, pinned: Set<String> = emptySet(), min
         if (shown.isEmpty()) return@mapNotNull null
         SettingsCard(
             group = first.group,
-            label = first.groupLabel.ifEmpty { first.group },
-            help = first.groupHelp,
+            label = first.groupLabelText,
+            help = first.groupHelpText,
             readOnly = first.groupReadOnly,
             params = shown,
         )

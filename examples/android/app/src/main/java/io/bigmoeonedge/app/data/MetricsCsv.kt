@@ -41,7 +41,7 @@ internal class Csv(
         if (info.isEmpty()) return ""
         val streamed = (info[PreambleFacts.STREAMING] ?: info[PreambleFacts.STREAMING_BEFORE])
             ?.let { if (it == "1") "streamed" else "mmap baseline" }
-        val lossy = glossary.lossyChanged(info).map { (spec, v) -> "${spec.label} ${glossary.value(spec.key, v)}" }
+        val lossy = glossary.lossyChanged(info).map { (spec, v) -> "${spec.labelText} ${glossary.value(spec.key, v)}" }
         return (listOfNotNull(info[PreambleFacts.MODEL], streamed) + lossy).joinToString(" · ")
     }
 
@@ -125,13 +125,13 @@ internal class ConfigGlossary(val params: List<ParamSpec>) {
     private val byKey = params.associateBy { preambleKey(it.key) }
 
     fun spec(key: String): ParamSpec? = byKey[key]
-    fun label(key: String): String = spec(key)?.label ?: PreambleFacts.label(key) ?: key
+    fun label(key: String): String = spec(key)?.labelText ?: PreambleFacts.label(key) ?: key
 
     /** A preamble value as the table types it: a switch as on/off, a number with its unit. */
     fun value(key: String, v: String): String {
         val s = spec(key) ?: return v
         return when {
-            s.type == "bool" -> if (v == "1" || v == "true") "on" else "off"
+            s.type == "bool" -> if (v == "1" || v == "true") ParamsZh.choice("on", "on") else ParamsZh.choice("off", "off")
             s.unit != null && v.toDoubleOrNull() != null -> "$v ${s.unit}"
             else -> v
         }

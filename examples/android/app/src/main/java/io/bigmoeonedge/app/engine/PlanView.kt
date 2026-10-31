@@ -41,7 +41,7 @@ data class AppliedChange(val key: String, val label: String, val from: String, v
 fun shownValue(spec: ParamSpec?, v: Any?): String {
     if (v == null) return ""
     val named = spec?.specialLabel(v)
-    val choice = spec?.choices?.firstOrNull { it.first == paramValueText(v) }?.second
+    val choice = spec?.choiceText(paramValueText(v)).takeIf { it != paramValueText(v) }
     val text = named ?: choice ?: paramValueText(v)
     return if (spec?.unit != null && v is Number && named == null) "$text ${spec.unit}" else text
 }
@@ -52,7 +52,7 @@ fun appliedChanges(before: Map<String, Any?>, after: Map<String, Any?>, params: 
     val keys = params.map { it.key } + after.keys.filter { it !in known }
     return keys.filter { it in after && !sameValue(before[it], after[it]) }.map { key ->
         val spec = params.firstOrNull { it.key == key }
-        AppliedChange(key, spec?.label?.ifEmpty { null } ?: key, shownValue(spec, before[key]), shownValue(spec, after[key]))
+        AppliedChange(key, spec?.labelText ?: key, shownValue(spec, before[key]), shownValue(spec, after[key]))
     }
 }
 

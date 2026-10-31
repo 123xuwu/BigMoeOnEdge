@@ -28,7 +28,7 @@ data class ContextWarning(
 /** The advice for [model], or null when there is no model or the server sent none. */
 fun contextWarning(model: ModelInfo?, params: List<ParamSpec>?): ContextWarning? {
     val a = model?.ctxAdvice ?: return null
-    val label = params?.firstOrNull { it.key == a.param }?.label ?: a.param
+    val label = params?.firstOrNull { it.key == a.param }?.labelText ?: a.param
     val dismissKey = "${model.path}\n${model.nCtx}" + if (a.refused) "\nrefused" else ""
     return ContextWarning(model.nCtx, a.recommended, a.short, a.refused, a.warn, dismissKey, label, a.param)
 }
