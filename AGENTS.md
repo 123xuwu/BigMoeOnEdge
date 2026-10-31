@@ -69,6 +69,9 @@ Desktop app: `cd ui && npm ci && npm test && npm run build`, then the CMake buil
 Android CLI: `pwsh scripts/build-android.ps1` (needs the NDK), then build the APK in
 `examples/android`.
 
+Formatting, on its own and fast (no build): `scripts/check-format.sh` — the CI `format` job
+exactly, so a change that passes here cannot fail there. See *Conventions* for the version.
+
 ## Hard rules
 
 1. **Never patch llama.cpp in-tree.** Everything goes through the public eval-callback and
@@ -116,10 +119,19 @@ Android CLI: `pwsh scripts/build-android.ps1` (needs the NDK), then build the AP
   (`git branch -d`, `git push origin --delete`). A branch list should only show work in
   flight. Nothing is lost on a rejected PR: GitHub keeps its commits reachable from the
   closed PR itself.
-- **Language:** all code, comments, docs, and commit messages in English.
-- **Style:** `.clang-format` (LLVM base, 4-space, 120 col). CI checks with
-  **clang-format 18**; match that version locally (`pip install clang-format==18.*`) or
-  formatting that looks clean can still fail the check.
+- **Language:** code, comments and docs in English — that is the engine's own vocabulary (a knob's
+  name is what `--help` prints), and translating it at the source would translate the CLI too.
+  **Commit messages on `zh-cn` are written in Chinese**, which is what that branch already does
+  throughout: its history is a Chinese-localisation line of work and reads as one. `main` keeps its
+  English messages; do not rewrite history on either branch to unify them.
+- **Style:** `.clang-format` (LLVM base, 4-space, 120 col). Run `scripts/check-format.sh` before
+  committing any change under `core/`, `cli/`, `server/`, `desktop/` or `tests/` — it is exactly
+  the CI `format` job, so it either passes here or fails there. `--fix` rewrites in place.
+  **Do not hand-align**: a call that fits in 120 columns goes on one line, one that does not gets
+  one argument per line, and the break points are not something to reproduce by eye — code that
+  reads as aligned still fails. CI checks with **clang-format 18**, so the script insists on that
+  binary name; `pip install clang-format==18.*` gets it anywhere, and a plain `clang-format` of
+  another version is not a substitute.
 - Comments explain *why* / invariants, not *what*.
 - **No milestone codenames** (M0…Mn) in docs — describe capabilities thematically.
 
