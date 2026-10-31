@@ -30,12 +30,19 @@ public:
 
     // `max_waiting` callers may wait behind the one running; the next is turned away.
     explicit TurnQueue(size_t max_waiting) : max_waiting_(max_waiting) {}
-
     // Block until every earlier caller has left. While waiting, `still_wanted` (nullable) is asked
     // once per `poll` and ends the wait by returning false: it is how a request whose client went
     // away stops holding a place, and where a streaming endpoint keeps its connection alive.
+    //
+    // `took_place` (nullable) runs once, under the queue's lock, the moment a ticket is taken -
+    // before this call blocks. `waiting()` already counts the new ticket, so a caller that publishes
+    // `waiting()` from it says "someone else is now behind me" at the only moment that is true and
+    // while no other caller can be between taking and publishing. Nothing else can: while this
+    // caller blocks, it runs no code and publishes nothing, so a count read after it sat down
+    // would never be sent at all.
     Admit enter(const std::function<bool()> & still_wanted = nullptr,
-                std::chrono::milliseconds poll = std::chrono::milliseconds(1000));
+                std::chrono::milliseconds poll = std::chrono::milliseconds(1000),
+                const std::function<void()> & took_place = nullptr);
     void leave();
 
     size_t waiting() const; // callers in line, not counting the one whose turn it is

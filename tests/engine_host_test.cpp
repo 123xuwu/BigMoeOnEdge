@@ -29,6 +29,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -426,6 +427,69 @@ static void cancel_tests() {
         host.cancel();
         const ChatOutcome out = running.get();
         check(out.status == 200 && out.result.cancelled, "until its own cancel");
+    }
+    {
+        // `waiting_turns` changes at exactly two moments - a turn taking its place in the line and
+        // handing it back - so a phone that shows "前面还有 N 个" beside the busy notice must be
+        // told at both. Otherwise the number it shows is whatever an unrelated state event last
+        // carried: a client that queues behind a running turn, and one that leaves the line, would
+        // both keep showing the count from before they got there.
+        auto bus_owner = std::make_unique<EventBus>();
+        EventBus & bus = *bus_owner;
+        auto q = bus.subscribe();
+        Script script;
+        script.turn = Script::Turn::Stream;
+        auto host_owner = std::make_unique<EngineHost>(bus, opener(script));
+        EngineHost & host = *host_owner;
+        host.load(config(), config());
+        wait_state(host, "ready");
+        // Drain what the load published: the frames below are about the line, not the state.
+        std::string frame;
+        while (EventBus::next(*q, frame, 50ms) && !frame.empty()) {
+        }
+
+        auto running = std::async(std::launch::async,
+                                  [&] { return host.chat(turn(), [](const TokenMetrics &) { return true; }); });
+        script.started.wait();
+        // The turn is running now, so the next client to ask for a place is a waiter, not the
+        // runner. Record every `waiting_turns` the bus carries from here on, in order.
+        std::vector<int> counts;
+        auto collect = [&](std::chrono::milliseconds limit) {
+            const auto end = std::chrono::steady_clock::now() + limit;
+            while (std::chrono::steady_clock::now() < end) {
+                std::string f;
+                if (!EventBus::next(*q, f, 20ms) || f.empty()) continue;
+                if (f.find("event: state\n") != 0) continue;
+                const size_t at = f.find("\"waiting_turns\":");
+                if (at == std::string::npos) continue;
+                counts.push_back(std::atoi(f.c_str() + at + 16));
+            }
+        };
+        std::atomic<bool> in_line{false};
+        auto waiter = std::async(std::launch::async, [&] {
+            return host.chat(
+                turn(), [](const TokenMetrics &) { return true; },
+                [&] {
+                    in_line = true; // it is inside the queue from here, hearing nothing until served
+                    return false;
+                });
+        });
+        // Until the waiter gives up, it holds a place: the running turn must say so on the bus.
+        const auto saw_one = std::chrono::steady_clock::now() + 2s;
+        while (std::chrono::steady_clock::now() < saw_one &&
+               std::none_of(counts.begin(), counts.end(), [](int n) { return n == 1; }))
+            collect(30ms);
+        check(std::find(counts.begin(), counts.end(), 1) != counts.end(),
+              "a turn taking its place in the line is published as waiting_turns 1");
+        const ChatOutcome left = waiter.get();
+        check(left.status == 499 && in_line, "the waiter left the line without being served");
+        collect(500ms);
+        const auto one = std::find(counts.begin(), counts.end(), 1);
+        check(std::find(one, counts.end(), 0) != counts.end(),
+              "and handing the place back is published as waiting_turns 0");
+        host.cancel();
+        running.get();
+        bus.unsubscribe(q);
     }
 }
 

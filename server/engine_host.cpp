@@ -8,6 +8,7 @@
 #include "bmoe/version.h"
 
 #include <cstdio>
+#include <chrono>
 #include <filesystem>
 #include <utility>
 
@@ -310,7 +311,7 @@ ChatOutcome EngineHost::chat(const ChatRequest & req,
                              const std::function<bool(const TokenMetrics &)> & on_token,
                              const std::function<bool()> & still_wanted) {
     ChatOutcome out;
-    switch (turns_.enter(still_wanted)) {
+    switch (turns_.enter(still_wanted, std::chrono::milliseconds(1000), [this] { publish_state(); })) {
     case TurnQueue::Admit::Granted:
         break;
     case TurnQueue::Admit::Full:
@@ -319,15 +320,25 @@ ChatOutcome EngineHost::chat(const ChatRequest & req,
         out.error = "busy: too many requests are already waiting for the model";
         return out;
     case TurnQueue::Admit::Abandoned:
+        // It left the line without ever taking a place, so `Leave` is never built for it - but its
+        // leaving is what makes `waiting_turns` one smaller, and everyone still waiting reads that
+        // number. Publish here or the count they see keeps including a client that is gone.
+        publish_state();
         out.status = 499; // never sent: the client that would read it is gone
         out.code = error_code::client_gone;
         out.error = "the client stopped waiting";
         return out;
     }
+    // Taking a place and giving it back are the only two moments `waiting_turns` changes, and that
+    // figure is what a UI puts beside "the model is answering something else": publish at both, or
+    // the number a phone shows is whatever an unrelated state event happened to carry.
     struct Leave {
-        TurnQueue & q;
-        ~Leave() { q.leave(); }
-    } leave{turns_};
+        EngineHost & host;
+        ~Leave() {
+            host.turns_.leave();
+            host.publish_state();
+        }
+    } leave{*this};
     std::unique_lock<std::mutex> g = take_turn();
 
     std::shared_ptr<HostedSession> s;
@@ -358,14 +369,46 @@ ChatOutcome EngineHost::chat(const ChatRequest & req,
     publish_state();
     // The session is this turn's for as long as generate() runs, so a cancel from inside the
     // callback stops this turn and cannot reach another client's.
-    bool client_gone = false;
+    std::atomic<bool> client_gone{false};
+    // `on_token` only runs when there is a token to hand out, but a turn spends its first seconds,
+    // and on a long prompt its first minutes, prefilling - producing nothing to send. A client that
+    // closes the tab there leaves no trace: no write fails because nothing is written. So the same
+    // question the queue asks while a request waits is asked here on its own thread, and stopping
+    // the turn is what the answer buys (Session::cancel stops between prefill chunks too).
+    std::atomic<bool> turn_over{false}, watcher_stop{false};
+    std::thread watcher;
+    if (still_wanted) {
+        watcher = std::thread([&] {
+            while (!watcher_stop.load()) {
+                for (int i = 0; i < 10 && !watcher_stop.load(); ++i)
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                if (watcher_stop.load()) return;
+                if (still_wanted()) continue;
+                client_gone = true;
+                // generate() may return between the poll and this line; cancelling then would
+                // reach the next turn on this session rather than this one.
+                if (!turn_over.load()) s->cancel();
+                return;
+            }
+        });
+    }
+    struct JoinWatcher {
+        std::thread & t;
+        std::atomic<bool> &stop, &over;
+        ~JoinWatcher() {
+            stop = true;
+            if (t.joinable()) t.join();
+            over = true;
+        }
+    } join{watcher, watcher_stop, turn_over};
     RunResult r = s->generate(gr, [&](const TokenMetrics & tm) {
         bus_.publish("token", token_json(tm));
-        if (on_token && !client_gone && !on_token(tm)) {
+        if (on_token && !client_gone.load() && !on_token(tm)) {
             client_gone = true;
             s->cancel();
         }
     });
+    turn_over = true;
     generating_ = false;
 
     if (!r) {
@@ -432,7 +475,7 @@ void EngineHost::keep_routing(const HostedSession & s) {
 
 DecideOutcome EngineHost::decide(const DecideRequest & req, const std::function<bool()> & still_wanted) {
     DecideOutcome out;
-    switch (turns_.enter(still_wanted)) {
+    switch (turns_.enter(still_wanted, std::chrono::milliseconds(1000), [this] { publish_state(); })) {
     case TurnQueue::Admit::Granted:
         break;
     case TurnQueue::Admit::Full:
@@ -441,15 +484,20 @@ DecideOutcome EngineHost::decide(const DecideRequest & req, const std::function<
         out.error = "busy: too many requests are already waiting for the model";
         return out;
     case TurnQueue::Admit::Abandoned:
+        publish_state(); // its leaving shrank the line; see chat()'s same branch
         out.status = 499;
         out.code = error_code::client_gone;
         out.error = "the client stopped waiting";
         return out;
     }
+    // Same two moments as chat(): this turn is a place in the same line.
     struct Leave {
-        TurnQueue & q;
-        ~Leave() { q.leave(); }
-    } leave{turns_};
+        EngineHost & host;
+        ~Leave() {
+            host.turns_.leave();
+            host.publish_state();
+        }
+    } leave{*this};
     std::unique_lock<std::mutex> g = take_turn();
 
     std::shared_ptr<HostedSession> s;
