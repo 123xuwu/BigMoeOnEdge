@@ -140,8 +140,7 @@ bool probe_tools(const common_chat_templates * tmpls) {
 
         // Same shape add_tools pushes (chat_messages.cpp), so this renders exactly what a real
         // request carrying one tool would.
-        inputs.tools.push_back({"bmoe_tool_probe",
-                                "Probe-only function; reports whether this template carries tools.",
+        inputs.tools.push_back({"bmoe_tool_probe", "Probe-only function; reports whether this template carries tools.",
                                 R"({"type":"object","properties":{}})"});
         inputs.tool_choice = COMMON_CHAT_TOOL_CHOICE_AUTO;
         const std::string with_tools =
