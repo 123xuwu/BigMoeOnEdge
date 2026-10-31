@@ -44,6 +44,13 @@ data class ModelInfo(
     val nCtx: Int,
     val nExpertUsed: Int,
     val thinkCtl: String, // template | prefill | none
+    /**
+     * Whether this model's template carries tools at all (`model.tools_supported`). False means a
+     * request's tools would be dropped by the template — the model would never learn a function
+     * exists — so the app must not offer an agent that could only answer in prose. Absent from an
+     * older server, which is read as true (the behaviour before the probe existed).
+     */
+    val toolsSupported: Boolean,
     val loadS: Double,
     val streaming: Boolean,
     /** What a CPU figure is read against: the session's compute threads, and every busy thread. */
@@ -57,7 +64,8 @@ data class ModelInfo(
             if (o == null) return null
             return ModelInfo(
                 o.optString("name"), o.optString("path"), o.optString("arch"), o.optInt("n_ctx"),
-                o.optInt("n_expert_used"), o.optString("think_ctl", "template"), o.optDouble("load_s", 0.0),
+                o.optInt("n_expert_used"), o.optString("think_ctl", "template"), o.optBoolean("tools_supported", true),
+                o.optDouble("load_s", 0.0),
                 o.optBoolean("streaming", false), o.optInt("compute_threads", 0), o.optInt("busy_threads", 0),
                 CtxAdvice.of(o.optJSONObject("ctx_advice")),
             )
@@ -95,6 +103,8 @@ data class ServerInfo(
     val error: String,
     val model: ModelInfo?,
     val generating: Boolean,
+    /** Turns waiting behind the one generating (server's serial queue); 0 when nothing waits. */
+    val waitingTurns: Int,
     val ramTotalMib: Long,
     val ramAvailableMib: Long,
 ) {
@@ -110,6 +120,7 @@ data class ServerInfo(
                 error = o.optString("error"),
                 model = ModelInfo.of(o.optJSONObject("model")),
                 generating = o.optBoolean("generating", false),
+                waitingTurns = o.optInt("waiting_turns", 0),
                 ramTotalMib = host?.optLong("ram_total_mib", 0) ?: 0,
                 ramAvailableMib = host?.optLong("ram_available_mib", 0) ?: 0,
             )
@@ -403,6 +414,13 @@ data class EngineUi(
 ) {
     val ready get() = serverUp && info?.ready == true
     val generating get() = info?.generating == true
+    /**
+     * A turn is already running, so a request sent now would wait in line rather than start (the
+     * server generates one at a time). Read BEFORE sending: a queued turn is invisible from inside
+     * its own request — it holds a worker thread and gets no answer until its turn comes — so the
+     * app is the only place that can tell the person it is waiting.
+     */
+    val queued get() = info?.generating == true || (info?.waitingTurns ?: 0) > 0
     val loading get() = info?.state == "loading" || info?.state == "planning"
 }
 

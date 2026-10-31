@@ -47,6 +47,7 @@ public:
     int n_ctx() const override { return s_->n_ctx(); }
     int n_expert_used() const override { return s_->n_expert_used(); }
     ThinkControl think_control() const override { return s_->think_control(); }
+    bool tools_supported() const override { return s_->tools_supported(); }
     double load_seconds() const override { return s_->load_seconds(); }
     RoutingTrace routing_record() const override { return s_->routing_record(); }
     MeasuredKnobs measured_knobs() const override { return s_->measured_knobs(); }
@@ -176,6 +177,9 @@ std::string EngineHost::load(const RunConfig & effective, const RunConfig & requ
                               {"n_ctx", s->n_ctx()},
                               {"n_expert_used", s->n_expert_used()},
                               {"think_ctl", think_control_name(s->think_control())},
+                              // A UI offers an agent only when this model can actually call tools:
+                              // the template either has a place for them or drops them silently.
+                              {"tools_supported", s->tools_supported()},
                               {"load_s", s->load_seconds()},
                               {"streaming", effective.moe.enabled},
                               // What a CPU figure is read against: the compute threads, and every

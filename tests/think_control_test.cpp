@@ -187,6 +187,29 @@ int main() {
                std::string(bmoe::think_control_name(bmoe::ThinkControl::Prefill)) == "prefill" &&
                    std::string(bmoe::think_control_name(bmoe::ThinkControl::None)) == "none" &&
                    std::string(bmoe::think_control_name(bmoe::ThinkControl::Template)) == "template");
+
+        // ── probe_tools ───────────────────────────────────────────────────────────────────────
+        // Unlike the thinking probe, this one asks a question every template answers: does it have
+        // a place to put a function? A template that models tools writes them into the prompt; one
+        // that does not renders the same bytes either way. Both kinds are real in the vendored set.
+        {
+            auto t = load(BMOE_TMPL_QWEN3);
+            expect("qwen3: template carries tools", bmoe::detail::probe_tools(t.get()));
+        }
+        {
+            auto t = load(BMOE_TMPL_GPTOSS);
+            expect("gpt-oss: template carries tools", bmoe::detail::probe_tools(t.get()));
+        }
+        // A template with no tool section at all: the same render with and without, so a request's
+        // tools would vanish and the model would never know a function existed.
+        {
+            auto t = common_chat_templates_init(
+                nullptr, "{% for m in messages %}{{ m.role }}: {{ m.content }}\n{% endfor %}assistant:");
+            expect("plain template: does not carry tools", !bmoe::detail::probe_tools(t.get()));
+        }
+        // As with the thinking probe, a probe that could not run is no evidence: fail open, since
+        // refusing tool requests on no evidence is the worse error.
+        expect("null templates: fails open to carrying tools", bmoe::detail::probe_tools(nullptr));
     } catch (const std::exception & e) {
         std::printf("[FAIL] unexpected exception: %s\n", e.what());
         ++failures;

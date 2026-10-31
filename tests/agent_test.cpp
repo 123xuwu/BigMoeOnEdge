@@ -148,6 +148,7 @@ public:
     int n_ctx() const override { return s_.n_ctx; }
     int n_expert_used() const override { return 8; }
     ThinkControl think_control() const override { return ThinkControl::Template; }
+    bool tools_supported() const override { return true; }
     double load_seconds() const override { return 0.0; }
 
 private:

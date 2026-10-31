@@ -346,6 +346,7 @@ private fun Composer() {
     Surface(color = tokens.surface, shadowElevation = 2.dp) {
         Column(Modifier.fillMaxWidth().imePadding()) {
             HorizontalDivider(color = tokens.line)
+            QueueNotice()
             LiveLine()
             if (choose) {
                 OutlinedTextField(
@@ -400,6 +401,25 @@ private fun Composer() {
             }
         }
     }
+}
+
+/**
+ * 服务端一次只生成一个回答（turn_queue.h）：别的会话或后台任务占着时，这一条发出去就会排队，
+ * 而不是开始。排在队里的请求自己看不到这件事——它占着一个 worker 线程，等轮到自己才有回应——
+ * 所以只有这里能提前告诉用户「在等」。
+ */
+@Composable
+private fun QueueNotice() {
+    val engine by Engine.state.collectAsStateWithLifecycle()
+    val info = engine.info ?: return
+    if (!info.generating) return
+    val ahead = info.waitingTurns
+    Text(
+        if (ahead > 0) "模型正在回答，前面还有 $ahead 个请求在排队" else "模型正在回答别的请求",
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 4.dp),
+    )
 }
 
 /** 生成速率与耗时分布，一行显示，生成中与生成后都可见；完整卡片见“指标”页。 */

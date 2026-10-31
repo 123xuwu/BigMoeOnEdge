@@ -121,6 +121,53 @@ ThinkControl probe_think_control(const common_chat_templates * tmpls) {
     }
 }
 
+bool probe_tools(const common_chat_templates * tmpls) {
+    if (tmpls == nullptr) return true;
+    try {
+        // The same one-turn conversation apply_probe renders, so the only difference between the two
+        // prompts is the function described. Its name and description are deliberately distinctive:
+        // a template that quotes either into the prompt shows up as a changed prompt, and a template
+        // whose tool section sits elsewhere (an XML preamble, a harmony channel) is found the same
+        // way. What is NOT looked for is any particular spelling of it.
+        common_chat_msg user;
+        user.role = "user";
+        user.content = "hi";
+        common_chat_templates_inputs inputs;
+        inputs.messages = {user};
+        inputs.add_generation_prompt = true;
+        inputs.use_jinja = true;
+        inputs.reasoning_format = COMMON_REASONING_FORMAT_AUTO;
+
+        // Same shape add_tools pushes (chat_messages.cpp), so this renders exactly what a real
+        // request carrying one tool would.
+        inputs.tools.push_back({"bmoe_tool_probe",
+                                "Probe-only function; reports whether this template carries tools.",
+                                R"({"type":"object","properties":{}})"});
+        inputs.tool_choice = COMMON_CHAT_TOOL_CHOICE_AUTO;
+        const std::string with_tools =
+            common_chat_templates_apply(const_cast<common_chat_templates *>(tmpls), inputs).prompt.str();
+
+        common_chat_templates_inputs bare;
+        bare.messages = {user};
+        bare.add_generation_prompt = true;
+        bare.use_jinja = true;
+        bare.reasoning_format = COMMON_REASONING_FORMAT_AUTO;
+        const std::string without_tools =
+            common_chat_templates_apply(const_cast<common_chat_templates *>(tmpls), bare).prompt.str();
+
+        const bool carries = with_tools != without_tools;
+        if (!carries) {
+            log_printf(LogLevel::Warn,
+                       "chat template renders the same prompt with and without tools; a request's tools "
+                       "would be dropped, so the model cannot call them");
+        }
+        return carries;
+    } catch (const std::exception & e) {
+        log_printf(LogLevel::Warn, "tools probe failed (%s); assuming the template carries them", e.what());
+        return true;
+    }
+}
+
 bool build_turn_inputs(common_chat_templates_inputs & inputs,
                        std::vector<common_chat_msg> messages,
                        bool think,

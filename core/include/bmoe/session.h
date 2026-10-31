@@ -246,6 +246,14 @@ public:
     // mode is off, where no template is rendered and the question does not arise.
     ThinkControl think_control() const;
 
+    // Whether this model's chat template carries tools at all (probed at open()). False means a
+    // request's GenerateRequest::tools would be silently dropped by the template: the prompt would
+    // be byte-identical with and without them, the model would never learn a function exists, and a
+    // caller waiting for a tool call would wait for an answer that was never possible. Report it to
+    // the user rather than leaving an agent that quietly answers in prose. Always true when chat
+    // mode is off, where there is no template to ask and no tools to describe.
+    bool tools_supported() const;
+
     // Set the expert-cache budget in MiB and evict down to it now. PRECONDITION: no generate() in
     // flight — call it between generations (e.g. from an app's memory-pressure callback). A no-op
     // when the cache is off. The only way the budget moves after init sizes it.

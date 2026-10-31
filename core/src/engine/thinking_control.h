@@ -52,6 +52,18 @@ void add_no_think_prefill(common_chat_templates_inputs & inputs);
 // Fails open to Template (the pre-existing behaviour: pass the flag and let the template decide),
 // because a probe that itself failed is no evidence that the flag is inert.
 ThinkControl probe_think_control(const common_chat_templates * tmpls);
+// Whether this model's template can be told about tools at all.
+//
+// A request may carry `tools`, but the syntax that describes them is the template's, not the
+// engine's (add_tools writes into the template's inputs and nothing else). A template with no tool
+// section renders the same prompt with and without them — the tools are silently dropped, the model
+// cannot know a function exists, and a caller waiting for a tool call waits for an answer that was
+// never possible. Two renders answer it: one with a function described, one without. A prompt that
+// does not change means the template has no place to put it.
+//
+// Fails open to true: a probe that itself failed is no evidence that the template cannot carry
+// tools, and refusing tool requests on no evidence is the worse error of the two.
+bool probe_tools(const common_chat_templates * tmpls);
 
 // The template inputs for the assistant turn that follows `messages`, with a think=false request
 // honoured the way this model supports it (`ctl`, from probe_think_control). One definition for

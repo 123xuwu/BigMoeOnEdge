@@ -398,6 +398,10 @@ struct Session::Impl {
     // How a think=false request can be honoured on this model; probed once at open(). Template
     // (the fail-open default) means the flag alone does the job and generate() adds nothing.
     ThinkControl think_ctl = ThinkControl::Template;
+    // Whether this model's template carries tools at all; probed once at open(), beside the
+    // thinking decision. False means a request's `tools` would be silently dropped - the model
+    // cannot know a function exists - which a caller waiting for a tool call must be told.
+    bool tools_ok = true;
     bool backend_inited = false;
     // What release_file_mappings left behind on purpose; released only after `model` is gone
     // (its teardown still unmaps/closes what it believes is its mapping; see mapping_release.h).
@@ -563,6 +567,9 @@ MeasuredKnobs Session::measured_knobs() const {
 }
 ThinkControl Session::think_control() const {
     return impl_->think_ctl;
+}
+bool Session::tools_supported() const {
+    return impl_->tools_ok;
 }
 void Session::set_cache_budget_mb(int mib) {
     impl_->source.set_cache_budget((size_t) std::max(0, mib) * 1024ull * 1024ull);
@@ -1066,6 +1073,7 @@ bool Session::Impl::read_model(Opening & o) {
             // Which "thinking off" mechanism this template supports is a property of the model, so
             // it is settled once here rather than re-derived on every turn.
             think_ctl = detail::probe_think_control(chat_tmpls.get());
+            tools_ok = detail::probe_tools(chat_tmpls.get());
         } catch (const std::exception & e) {
             log_printf(LogLevel::Warn, "chat template unavailable (%s); using raw prompts", e.what());
             chat_on = false;

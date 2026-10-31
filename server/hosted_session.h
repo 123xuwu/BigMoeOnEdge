@@ -30,6 +30,9 @@ public:
     virtual int n_ctx() const = 0;
     virtual int n_expert_used() const = 0;
     virtual ThinkControl think_control() const = 0;
+    // As Session::tools_supported: whether this model's template carries tools at all. A front-end
+    // reports it rather than offering an agent whose calls can never arrive.
+    virtual bool tools_supported() const = 0;
     virtual double load_seconds() const = 0;
     // As Session::routing_record: what the model routed so far, for the next plan. Between turns.
     virtual RoutingTrace routing_record() const { return {}; }
